@@ -46,20 +46,20 @@ def verticalProj(image):
     final = np.where(cha ==True)
     return brk[0][final[0]]
 
-# def horizontalProj(image):    
-#     image = 255 - image
-#     h,w = image.shape
-#     kernel = np.ones((35,20),np.int8)
-#     image = cv2.dilate(image, kernel)
-#     proj = np.sum(image,1) 
-#     brk = np.where(proj==0)
-#     cha = (np.diff(brk[0])>1)
-#     final = np.where(cha ==True)
-#     if len(final[0]):
-#         gaps = np.insert(brk[0][final[0]],-1,brk[0][-1])
-#     else:
-#         gaps = []
-#     return gaps
+def horizontalProj(image):    
+    image = 255 - image
+    h,w = image.shape
+    # kernel = np.ones((35,20),np.int8)
+    # image = cv2.dilate(image, kernel)
+    proj = np.sum(image,1) 
+    brk = np.where(proj==0)
+    cha = (np.diff(brk[0])>1)
+    final = np.where(cha ==True)
+    if len(final[0]):
+        gaps = np.insert(brk[0][final[0]],-1,brk[0][-1])
+    else:
+        gaps = []
+    return gaps
 
 def findHeader(data,image,i,save):
     image = findHeaderblob(image)
@@ -294,7 +294,8 @@ root = "./pdf_pages/"
 images = os.listdir(root)
 images.sort(key = lambda i: int(i.split('_')[-1]))
 # i = 380-32s
-while i < len(images):
+# while i < len(images):
+while i < 1:
     name = images[i] 
     print(images[i])
     path = os.path.join(root,name)
@@ -304,12 +305,19 @@ while i < len(images):
         cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
     img = constant_aspect_resize(gray)
     h,w = img.shape
-    columns = verticalProj(img.copy())
+    gaps = horizontalProj(img.copy)
+    for gap in gaps:
+        cv2.line(img,(int(gap),0),(int(gap),w),(0,0,255),3)
+    cv2.imshow(str(j),constant_aspect_resize(img, width=None, height=768))
+    if cv2.waitKey(0) & 0xFF == ord('q'):
+      cv2.destroyAllWindows()
+
+    # columns = verticalProj(img.copy())
     # for col in columns:
     #     image = cv2.line(image,(col,0),(col,h),(0,0,255))
     # cv2.imshow('sfew', constant_aspect_resize(image, width=None, height=700))
     # if cv2.waitKey(0) & 0xFF == ord('q'):
     #     cv2.destroyAllWindows()
     # assert False
-    sortByColumn(img.copy(),columns,name)
+    # sortByColumn(img.copy(),columns,name)
     i+=1
