@@ -7,10 +7,10 @@ from PIL import Image
 from tqdm import tqdm
 
 def convert(start,batch,diff,file_path,output_path):
-    for i in tqdm(range( diff -1 )):
-        images = convert_from_path(file_path,300,first_page = start+(batch*i)+1, last_page = start + (batch * (i+1) + 1))
+    for i in tqdm(range(diff)):
+        images = convert_from_path(file_path,300,first_page = start+(batch*i)+1, last_page = start + (batch * (i+1)))
         temp_images = []
-        page_num =start+(batch*i)
+        page_num =start+(batch*i)+1
         for i in range(len(images)):
             image_path = os.path.join(output_path,'page_'+str(page_num))
             print(image_path)
@@ -20,11 +20,11 @@ def convert(start,batch,diff,file_path,output_path):
 def convert_pdf(file_path, output_path,start,end,batch):
     os.makedirs(output_path,exist_ok = True)
     diff = int((end - start)/batch)
-    convert(start,batch,diff,file_path,output_path)
+    convert(start ,batch,diff,file_path,output_path)
     check_end = start+(batch*diff)
     check_batch = end - check_end
     if (check_batch):
-        convert(check_end,check_batch,2,file_path,output_path)
+        convert(check_end,check_batch,1,file_path,output_path)
 
 if __name__== "__main__" :
 
@@ -45,4 +45,4 @@ if __name__== "__main__" :
         start = args.start
         end = args.end
         batch = args.batch
-        convert_pdf(file,out_dir,start,end,batch)
+        convert_pdf(file,out_dir,start-1,end,batch)
