@@ -43,7 +43,7 @@ if __name__== "__main__" :
         file = args.file
         out_dir = args.out_dir
         root = os.getcwd()
-        os.makedirs(os.path.join(root,out_dir))
+        os.makedirs(os.path.join(root,out_dir),exist_ok = True)
         start = args.start
         end = args.end
         batch = args.batch

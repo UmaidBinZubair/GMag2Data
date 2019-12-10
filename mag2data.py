@@ -61,12 +61,15 @@ def removeLine(img):
     #     cv2.imshow('header',constant_aspect_resize(image, width=None, height=768))
     #     if cv2.waitKey(0) & 0xFF == ord('q'):
     #       cv2.destroyAllWindows()
-    max_wid = max(widths.keys()) 
-    if max_wid > 0.7 * w:
-        # print(widths[max_wid])
-        x,y,w,h = widths[max_wid]
-        img[y-3:y+h+3,x-3:x+w+3] = 255
-    return img
+    try:
+        max_wid = max(widths.keys()) 
+        if max_wid > 0.7 * w:
+            # print(widths[max_wid])
+            x,y,w,h = widths[max_wid]
+            img[y-3:y+h+3,x-3:x+w+3] = 255
+        return img
+    except:
+        pass
 
 def removeHeader(data):
     def common_member(a, b): 
@@ -440,7 +443,8 @@ if __name__== "__main__" :
             images = os.listdir(root)
             images.sort(key = lambda i: int((i.split('_')[-1]).split('.')[0]))
             # i = 24 
-            i = 0           
+            i = 0 
+            # i = 293        
             while i < len(images):
                 name = images[i] 
                 print(images[i])
