@@ -2,7 +2,6 @@ import pytesseract
 import cv2
 import os
 import sys
-# from PIL import Image
 import pandas as pd
 import argparse
 import numpy as np
@@ -20,6 +19,7 @@ lin['Model_year'] = ''
 lin['Features'] = ''
 lin['Low'] = ''
 lin['High'] = ''
+lin['Year'] = ''
 
 num = 0
 
@@ -39,6 +39,54 @@ def constant_aspect_resize(image, width=2500, height=None):
         resized = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
     return resized
 
+def removeLine(img):
+    _h,_w = img.shape
+    # gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret,thresh = cv2.threshold(img,10,255,cv2.THRESH_BINARY_INV)
+    cnts, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    widths = {}
+    for c in cnts:
+        area = cv2.contourArea(c)
+        if area > 0.1*(_w*_h):
+            return None
+        perimeter = cv2.arcLength(c, False)
+        if area > 1 and perimeter > 1:
+            x,y,w,h = cv2.boundingRect(c)
+            widths[w] = [x,y,w,h]
+    # print(widths.keys())
+    # image = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    # for i in widths:
+    #     x,y,w,h = widths[i]
+    #     cv2.rectangle(image,(x,y),(x+w,y+h),(0,0,255),2)
+    #     cv2.imshow('header',constant_aspect_resize(image, width=None, height=768))
+    #     if cv2.waitKey(0) & 0xFF == ord('q'):
+    #       cv2.destroyAllWindows()
+    max_wid = max(widths.keys()) 
+    if max_wid > 0.7 * w:
+        # print(widths[max_wid])
+        x,y,w,h = widths[max_wid]
+        img[y-3:y+h+3,x-3:x+w+3] = 255
+    return img
+
+def removeHeader(data):
+    def common_member(a, b): 
+        a_set = set(a) 
+        b_set = set(b) 
+        if len(a_set.intersection(b_set)) > 0: 
+            return(True)  
+        return(False)
+
+    a = ['YEAR', 'FEATURES', 'LOW', 'HIGH','MODEL', 'EXC.' 'COND. ', 'EXC. ', 'COND.','Low','High']
+    i=0
+    while i < len(data):
+        line = data[i]
+        if len(line['words']):
+            if common_member(a,line['words']) or line['words'][0].isspace() or line['words'][0] == '':
+                del data[i]
+                i-=1 
+        i+=1
+
+    
 def verticalProj(image):    
     image = 255 - image
     h,w = image.shape
@@ -72,7 +120,7 @@ def line_align(data,w):
             r2 = data[j]['box']
             b = [0,r2[1],w,r2[1]+r2[3]]
             if bb(a,b) > 0 and r2[0] > r1[0]:
-                print(bb(a,b),data[i]['words'],data[j]['words'])
+                # print(bb(a,b),data[i]['words'],data[j]['words'])
                 data[i]['words'] += data[j]['words']
                 data[i]['box'][0] = min(data[i]['box'][0],data[j]['box'][0])
                 data[i]['box'][1] = min(data[i]['box'][1],data[j]['box'][1])
@@ -88,10 +136,6 @@ def findamount(data,w):
     i = 0
     while i < len(data):
         line = data[i]
-        # print(line['words'])
-        # if not line['amount']:
-        #     i+=1
-        #     continue
         dollor_num = 0
         for elem in line['words']:
             if '$' in elem:
@@ -99,8 +143,6 @@ def findamount(data,w):
             if dollor_num > 1:
                 line['amount'] = 1
                 if line['box'][0] > 0.07*w:
-                    # print(line['words'])
-                    # print(data[i-1]['words'])
                     data[i-1]['words'] = data[i-1]['words'] + line['words']
                     data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3] + 10
                     data[i-1]['box'][2] = (line['box'][0]+line['box'][2]) - data[i-1]['box'][0]   
@@ -110,81 +152,94 @@ def findamount(data,w):
         i+=1
 
 def findHeader(data,image,i,save,out_dir):
+    img = image.copy()
     image = findHeaderblob(image)
-    cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(i)+'_header.jpg')),constant_aspect_resize(image, width=None, height=700))
+    # cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(i)+'_header.jpg')),constant_aspect_resize(image, width=None, height=700))
     for i,line in enumerate(data):
         b = line['box']
-        summed = np.sum(image[b[1]:b[1]+b[3],b[0]:b[0]+b[2]])
-        # print(summed,line['words'])
-        if summed > 1000000:
-            # print(data)
-            # if line['words'][0].isspace() or line['words'][0] == '':
-            #     continue
+        crop = image[b[1]:b[1]+b[3],b[0]:b[0]+b[2]]
+        _crop = img[b[1]:b[1]+b[3],b[0]:b[0]+b[2]]
+        if crop.size == 0:
+            continue
+        summed = np.sum(crop)/(crop.size)
+        widths = findContourWidth(_crop)
+        wid = np.mean(widths) + (2*np.std(widths))
+        # print(summed*wid,line['words'])
+
+        if (summed*wid) > 700:
             if data[i-1]['header']:
                 data[i-1]['words'] = data[i-1]['words'] + line['words']
                 data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
                 del data[i]
             else:
-                line['header'] = 1                
+                line['header'] = 1
+
+        # summed = np.sum(image[b[1]:b[1]+b[3],b[0]:b[0]+b[2]])
+
+        # print(summed,line['words'])
+        # if summed > 900000:
+        #     if data[i-1]['header']:
+        #         data[i-1]['words'] = data[i-1]['words'] + line['words']
+        #         data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
+        #         del data[i]
+        #     else:
+        #         line['header'] = 1
+
+def findContourWidth(crop):
+    gray_image = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    ret,thresh = cv2.threshold(gray_image,10,255,cv2.THRESH_BINARY_INV)
+    cnts, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    widths = []
+    for c in cnts:
+        area = cv2.contourArea(c)
+        perimeter = cv2.arcLength(c, False)
+        if area > 1 and perimeter > 1:
+            x,y,w,h = cv2.boundingRect(c)
+            widths.append(w)
+
+    return widths
+
 
 def findSubHeader(data,image,i,save,out_dir):
+    img = image.copy()
     image = findSubHeaderblob(image)
-    h,w = image.shape
-    cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(i)+'_subheader.jpg')),constant_aspect_resize(image, width=None, height=700))
+    h,w,_ = image.shape
+    # cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(i)+'_subheader.jpg')),constant_aspect_resize(image, width=None, height=700))
     for i,line in enumerate(data):
         if line['amount'] or line['header']:
             continue
         b = line['box']
         crop = image[b[1]:b[1]+b[3],b[0]:b[0]+b[2]]
+        _crop = img[b[1]:b[1]+b[3],b[0]:b[0]+b[2]]
         if crop.size == 0:
             continue
         summed = np.sum(crop)/(crop.size)
-        try:
-            # print(summed,line['words'])
-            if summed > 20 and ((data[i+1]['box'][0]) > 0.01*w or data[i+1]['amount']) :
+        # _summed = np.sum(_crop)/(_crop.size)
+        widths = findContourWidth(_crop)
+        wid = np.mean(widths) + (3*np.std(widths))
+        # print(summed*wid,line['words'])
+
+        if (summed*wid) > 600:
+            if data[i-1]['sub']:
+                data[i-1]['words'] = data[i-1]['words'] + line['words']
+                data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
+                del data[i]
+            else:
                 line['sub'] = 1
-                if data[i-1]['amount'] or data[i-1]['header'] or data[i-1]['box'][0] > 0.01*w:
-                    continue
-                check_b = data[i-1]['box']
-                check_crop = image[check_b[1]:check_b[1]+check_b[3],check_b[0]:check_b[0]+check_b[2]]
-                if np.sum(check_crop)/np.size(check_crop) > 20 :
-                    data[i-1]['words'] = data[i-1]['words'] + line['words']
-                    data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
-                    data[i-1]['sub'] = 1
-                    del data[i]
-        except:
-            pass
-            # if data[i-1]['sub']:
-            #   data[i-1]['words'] = data[i-1]['words'] + line['words']
-            #   data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
-            #   del data[i]
-            # else:
-            #   line['sub'] = 1
-
-    # paras = []
-    # kk = 0
-    # gaps = sorted(gaps)
-    # for k in range(len(gaps)-1):
-    #     start = gaps[k]
-    #     end = gaps[k+1]
-    #     para = []
-    #     while kk < len(data):
-    #         line_y = data[kk]['box'][1]
-    #         if line_y > start and line_y < end:
-    #             para.append(data[kk])
-    #         else:
-    #             break
-    #         kk+=1
-    #     paras.append(para)
-    # for para in paras:
-    #     if len(para):
-    #         para[0]['header'] = 1
-    #         if len(para) > 1:                    
-    #             if para[0]['box'][2] > para[1]['box'][2] :
-    #                 para[0]['words'] = para[0]['words'] + para[1]['words']
-    #                 para[0]['box'][3] = para[0]['box'][3] + para[1]['box'][3]
-
-
+        # try:
+        #     if summed > 20 and ((data[i+1]['box'][0]) > 0.01*w or data[i+1]['amount']) :
+        #         line['sub'] = 1
+        #         if data[i-1]['amount'] or data[i-1]['header'] or data[i-1]['box'][0] > 0.01*w:
+        #             continue
+        #         check_b = data[i-1]['box']
+        #         check_crop = image[check_b[1]:check_b[1]+check_b[3],check_b[0]:check_b[0]+check_b[2]]
+        #         if np.sum(check_crop)/np.size(check_crop) > 20 :
+        #             data[i-1]['words'] = data[i-1]['words'] + line['words']
+        #             data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
+        #             data[i-1]['sub'] = 1
+        #             del data[i]
+        # except:
+        #     pass
 
 def findHeaderblob(image):
     image = 255-image
@@ -192,41 +247,24 @@ def findHeaderblob(image):
     image= cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel,iterations=1)
     kernel = np.ones((2,2),np.uint8)
     image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel,iterations=2)
-    # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # blur = cv2.GaussianBlur(image,(5,5),0)
-    # _,image = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    # kernel = np.ones((3,3),np.uint8)
-    # # kernel = np.ones((7,7),np.uint8)
-    # # image = cv2.erode(image,kernel,iterations = 1)
     kernel = np.ones((5,5),np.uint8)
     image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel,iterations=2)
-    # cv2.imshow('header',constant_aspect_resize(image, width=None, height=768))
-    # if cv2.waitKey(0) & 0xFF == ord('q'):
-    #   cv2.destroyAllWindows()
 
     return image
 
 def findSubHeaderblob(im):
-    # cv2.imshow('firsr',constant_aspect_resize(im, width=None, height=768))
     im = 255-im
     kernel = np.ones((5,6),np.uint8)
     im = cv2.morphologyEx(im, cv2.MORPH_OPEN, kernel,iterations=1)
-    # cv2.imshow('firsr',constant_aspect_resize(im, width=None, height=768))
-    # cv2.imshow('first',constant_aspect_resize(im, width=None, height=768))
-    # if cv2.waitKey(0) & 0xFF == ord('q'):
-    #   cv2.destroyAllWindows()
     kernel = np.ones((4,37),np.uint8)
     im = cv2.morphologyEx(im, cv2.MORPH_CLOSE, kernel,iterations=5)
-    # cv2.imshow('second',constant_aspect_resize(im, width=None, height=768))
     kernel = np.ones((3,7),np.uint8)
     im = cv2.morphologyEx(im, cv2.MORPH_OPEN, kernel,iterations=4)  
-    # cv2.imshow('third',constant_aspect_resize(im, width=None, height=768))
-    im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(im,(5,5),0)
-    _,im = cv2.threshold(blur,50,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    # cv2.imshow('final',constant_aspect_resize(im, width=None, height=768))
-    if cv2.waitKey(0) & 0xFF == ord('q'):
-        cv2.destroyAllWindows()
+    # im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+    # blur = cv2.GaussianBlur(im,(5,5),0)
+    # _,im = cv2.threshold(blur,50,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    # if cv2.waitKey(0) & 0xFF == ord('q'):
+    #     cv2.destroyAllWindows()
 
     return im
 
@@ -252,7 +290,6 @@ def data2excel (data,file):
     startrow = num
     excel_data = []
     for line in data:
-        # print(lin['Manufacturer'])
         lin['Page'] = line['page']
         if line['header']:
             lin['Manufacturer'] = ' '.join(line['words'])
@@ -277,19 +314,14 @@ def data2excel (data,file):
             num += 1
     df = pd.DataFrame(excel_data)
     if not df.empty:
-        col = ['Page','Manufacturer','Model','Model_year','Features','Low','High']
+        col = ['Page','Manufacturer','Model','Model_year','Features','Low','High','Year']
         df = df[col]
         print(df)
         excelWrite(df,filename = file)
 
 def sortByColumn(image,columns,save,file,out_dir):
     h,w= image.shape
-    # image = image[int(0.07*h):int(0.95*h),:]
-    image = image[int(0.106*h):int(0.93*h),:]
-    # cv2.imshow('',constant_aspect_resize(image, width=None, height=600))
-    # if cv2.waitKey(0) & 0xFF == ord('q'):
-    #   cv2.destroyAllWindows()
-    # col_data = []
+    image = image[int(0.07*h):int(0.955*h),:]
     for j,col in enumerate(columns):
         start = col - 20
         if j+1 == len(columns):
@@ -299,18 +331,9 @@ def sortByColumn(image,columns,save,file,out_dir):
         if (end - start) < 0.1*w:
             continue 
         img = image[:,start:end]
-
-        # cv2.imshow(str(j),constant_aspect_resize(img, width=None, height=768))
-        # if cv2.waitKey(0) & 0xFF == ord('q'):
-        #     cv2.destroyAllWindows()        
-
-        # gaps = horizontalProj(img.copy())
-        # if list(gaps):
-        #     if gaps[0] > 0.33*h:
-        #         continue
-        #     img = img [gaps[0]:,:]
-        # else:
-        #     continue
+        img = removeLine(img)
+        if img is None:
+            continue
         vert = verticalProj(img.copy())
         try:
             if vert[0] <= 15:
@@ -319,33 +342,14 @@ def sortByColumn(image,columns,save,file,out_dir):
                 img = img[:,vert[0]-15:]
         except:
             pass
-        # cv2.line(img,(int(0.01*w),0),(int(0.01*w),h),(0,0,255),3)
-        # # print(len(gaps),'gaps')
-        # # if len(gaps) < 10 :
-        # #     continue
-        # # cv2.line(img,(int(0.02*w),0),(int(0.02*w),h),(0,0,255),3)
-        # for gap in vert:
-        #     cv2.line(img,(int(gap),0),(int(gap),h),(0,0,255),3)
-        # cv2.imshow(str(j),constant_aspect_resize(img, width=None, height=768))
-        # # cv2.imshow('prcess_'+str(j),constant_aspect_resize(img, width=None, height=768))
-        # if cv2.waitKey(0) & 0xFF == ord('q'):
-        #     cv2.destroyAllWindows()
-      # im = check(img)
-    #   cv2.imshow(str(j),constant_aspect_resize(im, width=None, height=768))
-    # if cv2.waitKey(0) & 0xFF == ord('q'):
-    #   cv2.destroyAllWindows()
-    # assert False
-
-        # conf = """--oem 0 -c tessedit_char_blacklist=|_*! """
-        # ocr = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT,config=conf)
         ocr = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT, config = '--psm 4')
-        value = [ocr['height'][i] for i,level in enumerate(ocr['level']) if level == 4]
-        if value:
-            value = max(value)
-            if value > 0.1*h:
-                continue
-        else:
-            continue
+        # value = [ocr['height'][i] for i,level in enumerate(ocr['level']) if level == 4]
+        # if value:
+        #     value = max(value)
+        #     if value > 0.1*h:
+        #         continue
+        # else:
+        #     continue
             
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         data = []
@@ -367,81 +371,32 @@ def sortByColumn(image,columns,save,file,out_dir):
                 line['box'] = rect
                 data.append(line) 
             if ocr['level'][i] == 5:
-                # if flag:
-                #     # print(ocr['text'][i],ocr['width'][i],ocr['conf'][i],end-start)
-                #     continue
-                if ocr['width'][i] > 0.7 * (end-start) and not flag and ocr['conf'][i] > 70:
-                    # print(ocr['text'][i],ocr['width'][i],ocr['conf'][i],end-start)
-                    flag = 1
-                    del data[-1]
-                else:
-                # line['words'].append(ocr['text'][i])
-                    data[-1]['words'].append(ocr['text'][i])
-
-                # if '$' in ocr['text'][i] or flag:
-                # if '$' in ocr['text'][i]:
-                #     if flag:
-                #         line['amount'] = 1
-                #     else:
-                #         flag = 1 
-                    # if len(line['words'])<2:
-                    #     continue
-                    # print('first line',line['words'])
-                    # if line['box'][0] > 0.05*(end - start) and flag:
-                    #     print('previous line',data[-2]['words'])
-                    #     data[-2]['words'] = data[-2]['words'] + line['words']
-                    #     data[-2]['box'][3] = data[-2]['box'][3] + line['box'][3] +5
-                    #     data[-2]['box'][2] = (line['box'][0]+line['box'][2]) - data[-2]['box'][0]   
-                    #     data[-2]['amount'] = 1
-                    #     del data[-1]
-                    #     print('second line',data[-1]['words'])
-                    #     if data[-1]['box'][0] > 0.05*(end - start):
-                    #         data[-2]['words'] = data[-2]['words'] + data[-1]['words']
-                    #         data[-2]['box'][3] = data[-2]['box'][3] + data[-1]['box'][3] + 5
-                    #         data[-2]['box'][2] = (data[-1]['box'][0]+data[-1]['box'][2]) - data[-2]['box'][0]   
-                    #         data[-2]['amount'] = 1
-                    #         del data[-1]
-                    # else:
-                    #     flag = 1
-                    #     line['amount'] = 1
-                    # print(data[-1])
-        # cv2.imshow(str(j), constant_aspect_resize(img, width=None, height=700))
-        # if cv2.waitKey(0) & 0xFF == ord('q'):
-        #     cv2.destroyAllWindows()
-        # assert False
-        # w_ = end - start
-        # data = line_align(data,end - start)
-        # cv2.line(img,(int(0.05*w_),0),(int(0.05*w_),h),(0,0,255),3)
-        # cv2.imshow(str(j),constant_aspect_resize(img, width=None, height=768))
-        # if cv2.waitKey(0) & 0xFF == ord('q'):
-        #     cv2.destroyAllWindows()
+                # print(ocr['text'][i],ocr['conf'][i],ocr['width'][i],0.7 * (end-start))
+                # print(data[-1])
+                # if ocr['width'][i] > 0.7 * (end-start) and not flag and ocr['conf'][i] > 70:
+                # print(ocr['text'][i])
+                # if ocr['width'][i] > 0.7 * (end-start) and not flag:
+                #     print(ocr['text'][i],ocr['width'][i],(end-start))
+                # # if ocr['width'][i] > 0.7 * (end-start) and ocr['conf'][i] > 70:
+                #     flag = 1
+                #     # print(ocr['text'][i])
+                #     del data[-1]
+                #     # continue
+                # else:
+                    # try:
+                        # print(data[-1])
+                line['words'].append(ocr['text'][i])
+                    # except:
+                    #     pass
         # for line in data:
         #     print(line['words'])
-        # for line in data:
-        #     b = line['box']
-        #     cv2.rectangle(img, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (0,0, 255), 3)
-        # cv2.imshow(str(j), constant_aspect_resize(img, width=None, height=700))
-        # if cv2.waitKey(0) & 0xFF == ord('q'):
-        #     cv2.destroyAllWindows()
-        # # assert False
-        # print(data)
-        # assert False
-        # data = line_align(data,end-start)
-        # for line in data:
-        #     print(line['words'])
-        # assert False
+        removeHeader(data)
         findamount(data,end - start)
         findHeader(data,img,j,save,out_dir)
         findSubHeader(data,img,j,save,out_dir)
         draw(data,img)
         data2excel(data,file)
         cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(j)+'.jpg')),constant_aspect_resize(img, width=None, height=700))
-
-
-        # cv2.line(img,(int(0.015*w),0),(int(0.015*w),h),(0,0,255),3)
-    #   cv2.imshow(str(j),constant_aspect_resize(img, width=None, height=768))
-    # if cv2.waitKey(0) & 0xFF == ord('q'):
-    #   cv2.destroyAllWindows()
 
 
 def process(path,out_dir,file,name):
@@ -452,12 +407,6 @@ def process(path,out_dir,file,name):
     img = constant_aspect_resize(gray)
     h,w = img.shape
     columns = verticalProj(img.copy())
-    # for col in columns:
-    #     cv2.line(img,(col,0),(col,h),(0,0,255),2)
-    # cv2.imshow('sdgd',constant_aspect_resize(img, width=None, height=768))
-    # if cv2.waitKey(0) & 0xFF == ord('q'):
-    #   cv2.destroyAllWindows()
-
     sortByColumn(img.copy(),columns,name,file,out_dir)
 
 
@@ -469,12 +418,14 @@ if __name__== "__main__" :
     parser.add_argument('-f','--excel_name', help = 'Output excel filename')
     parser.add_argument('-o',"--out_dir", help = "Directory of evaluation output", default = './')
     parser.add_argument('-s',"--specific_page", help = "Path to a specific image to be processed")
+    parser.add_argument('-y',"--year", help = "Year, in which the magazine was published in")
 
     args = parser.parse_args()
 
     if not len(sys.argv) > 1 :
         print ('No input has been provided')
     else:
+        lin['Year'] = args.year
         debug = args.debug
         out_dir = args.out_dir
         file = os.path.join(out_dir,args.excel_name)

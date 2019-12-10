@@ -42,6 +42,8 @@ if __name__== "__main__" :
     else:    
         file = args.file
         out_dir = args.out_dir
+        root = os.getcwd()
+        os.makedirs(os.path.join(root,out_dir))
         start = args.start
         end = args.end
         batch = args.batch
