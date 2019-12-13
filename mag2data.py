@@ -41,53 +41,45 @@ def constant_aspect_resize(image, width=2500, height=None):
 
 def removeLine(img):
     _h,_w = img.shape
-    # gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     ret,thresh = cv2.threshold(img,10,255,cv2.THRESH_BINARY_INV)
     cnts, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
     widths = {}
     for c in cnts:
         area = cv2.contourArea(c)
-        if area > 0.1*(_w*_h):
+        if area > 0.08*(_w*_h):
             return None
         perimeter = cv2.arcLength(c, False)
         if area > 1 and perimeter > 1:
             x,y,w,h = cv2.boundingRect(c)
             widths[w] = [x,y,w,h]
-    # print(widths.keys())
-    # image = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    # for i in widths:
-    #     x,y,w,h = widths[i]
-    #     cv2.rectangle(image,(x,y),(x+w,y+h),(0,0,255),2)
-    #     cv2.imshow('header',constant_aspect_resize(image, width=None, height=768))
-    #     if cv2.waitKey(0) & 0xFF == ord('q'):
-    #       cv2.destroyAllWindows()
     try:
         max_wid = max(widths.keys()) 
         if max_wid > 0.7 * w:
             # print(widths[max_wid])
             x,y,w,h = widths[max_wid]
-            img[y-3:y+h+3,x-3:x+w+3] = 255
+            img[0:y+h+3,:] = 255
+            # img[y-3:y+h+3,x-3:x+w+3] = 255
         return img
     except:
         pass
 
-def removeHeader(data):
-    def common_member(a, b): 
-        a_set = set(a) 
-        b_set = set(b) 
-        if len(a_set.intersection(b_set)) > 0: 
-            return(True)  
-        return(False)
+# def removeHeader(data):
+#     def common_member(a, b): 
+#         a_set = set(a) 
+#         b_set = set(b) 
+#         if len(a_set.intersection(b_set)) > 0: 
+#             return(True)  
+#         return(False)
 
-    a = ['YEAR', 'FEATURES', 'LOW', 'HIGH','MODEL', 'EXC.' 'COND. ', 'EXC. ', 'COND.','Low','High']
-    i=0
-    while i < len(data):
-        line = data[i]
-        if len(line['words']):
-            if common_member(a,line['words']) or line['words'][0].isspace() or line['words'][0] == '':
-                del data[i]
-                i-=1 
-        i+=1
+#     a = ['YEAR', 'FEATURES', 'LOW', 'HIGH','MODEL', 'EXC.' 'COND. ', 'EXC. ', 'COND.','Low','High']
+#     i=0
+#     while i < len(data):
+#         line = data[i]
+#         if len(line['words']):
+#             if common_member(a,line['words']) or line['words'][0].isspace() or line['words'][0] == '':
+#                 del data[i]
+#                 i-=1 
+#         i+=1
 
     
 def verticalProj(image):    
@@ -220,29 +212,15 @@ def findSubHeader(data,image,i,save,out_dir):
         # _summed = np.sum(_crop)/(_crop.size)
         widths = findContourWidth(_crop)
         wid = np.mean(widths) + (3*np.std(widths))
-        # print(summed*wid,line['words'])
+        # print(summed*wid,line['words's])
 
-        if (summed*wid) > 600:
+        if (summed*wid) > 1000:
             if data[i-1]['sub']:
                 data[i-1]['words'] = data[i-1]['words'] + line['words']
                 data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
                 del data[i]
             else:
                 line['sub'] = 1
-        # try:
-        #     if summed > 20 and ((data[i+1]['box'][0]) > 0.01*w or data[i+1]['amount']) :
-        #         line['sub'] = 1
-        #         if data[i-1]['amount'] or data[i-1]['header'] or data[i-1]['box'][0] > 0.01*w:
-        #             continue
-        #         check_b = data[i-1]['box']
-        #         check_crop = image[check_b[1]:check_b[1]+check_b[3],check_b[0]:check_b[0]+check_b[2]]
-        #         if np.sum(check_crop)/np.size(check_crop) > 20 :
-        #             data[i-1]['words'] = data[i-1]['words'] + line['words']
-        #             data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
-        #             data[i-1]['sub'] = 1
-        #             del data[i]
-        # except:
-        #     pass
 
 def findHeaderblob(image):
     image = 255-image
@@ -263,11 +241,6 @@ def findSubHeaderblob(im):
     im = cv2.morphologyEx(im, cv2.MORPH_CLOSE, kernel,iterations=5)
     kernel = np.ones((3,7),np.uint8)
     im = cv2.morphologyEx(im, cv2.MORPH_OPEN, kernel,iterations=4)  
-    # im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    # blur = cv2.GaussianBlur(im,(5,5),0)
-    # _,im = cv2.threshold(blur,50,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    # if cv2.waitKey(0) & 0xFF == ord('q'):
-    #     cv2.destroyAllWindows()
 
     return im
 
@@ -324,7 +297,7 @@ def data2excel (data,file):
 
 def sortByColumn(image,columns,save,file,out_dir):
     h,w= image.shape
-    image = image[int(0.07*h):int(0.955*h),:]
+    image = image[int(0.08*h):int(0.955*h),:]
     for j,col in enumerate(columns):
         start = col - 20
         if j+1 == len(columns):
@@ -340,7 +313,7 @@ def sortByColumn(image,columns,save,file,out_dir):
         vert = verticalProj(img.copy())
         try:
             if vert[0] <= 15:
-                continue
+                pass
             else:
                 img = img[:,vert[0]-15:]
         except:
@@ -374,26 +347,9 @@ def sortByColumn(image,columns,save,file,out_dir):
                 line['box'] = rect
                 data.append(line) 
             if ocr['level'][i] == 5:
-                # print(ocr['text'][i],ocr['conf'][i],ocr['width'][i],0.7 * (end-start))
-                # print(data[-1])
-                # if ocr['width'][i] > 0.7 * (end-start) and not flag and ocr['conf'][i] > 70:
-                # print(ocr['text'][i])
-                # if ocr['width'][i] > 0.7 * (end-start) and not flag:
-                #     print(ocr['text'][i],ocr['width'][i],(end-start))
-                # # if ocr['width'][i] > 0.7 * (end-start) and ocr['conf'][i] > 70:
-                #     flag = 1
-                #     # print(ocr['text'][i])
-                #     del data[-1]
-                #     # continue
-                # else:
-                    # try:
-                        # print(data[-1])
                 line['words'].append(ocr['text'][i])
-                    # except:
-                    #     pass
-        # for line in data:
-        #     print(line['words'])
-        removeHeader(data)
+
+        # removeHeader(data)
         findamount(data,end - start)
         findHeader(data,img,j,save,out_dir)
         findSubHeader(data,img,j,save,out_dir)
@@ -444,7 +400,7 @@ if __name__== "__main__" :
             images.sort(key = lambda i: int((i.split('_')[-1]).split('.')[0]))
             # i = 24 
             i = 0 
-            # i = 293        
+            # i = 95        
             while i < len(images):
                 name = images[i] 
                 print(images[i])

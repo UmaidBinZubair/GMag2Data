@@ -60,7 +60,7 @@ def metric(gt_data,check_data,debug,out_dir):
                 words += len(gt_word_list)
                 chars += len(gt_word)
                 if w_error and debug:
-                    cells_to_color.append([i, j])
+                    cells_to_color.append([i+1, j])
 
         print( 
             f"Cha Acc: {((chars-cha_error)/chars):.4f}\n"
@@ -69,7 +69,7 @@ def metric(gt_data,check_data,debug,out_dir):
 
         acc[col] =( 
             f"Cha Acc: {((chars-cha_error)/chars):.5f}\n"
-            f"Word Acc: {((words-word_error)/words):.5f}\n\n"
+            f"Word Acc: {((words-word_error)/words):.5f}"
             )
 
     def colorize(x):
@@ -80,15 +80,16 @@ def metric(gt_data,check_data,debug,out_dir):
         return df1
 
     check_data = check_data.append(acc,ignore_index = True)
+    check_data = pd.concat([pd.DataFrame(acc,index = [0]), check_data], ignore_index=True).reset_index(drop = True)
     final_data = check_data.style.apply(colorize, axis=None)
-    final_data.to_excel(os.path.join(out_dir,"result.xlsx"),index = None)
+    final_data.to_excel(out_dir,index = None)
 
 
 if __name__== "__main__" :
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-d','--debug', help = 'Enable debug', action='store_true')
-    parser.add_argument('-g','--gt_file', help = 'Path of ground truth excel file')
+    # parser.add_argument('-g','--gt_file', help = 'Path of ground truth excel file')
     parser.add_argument('-f','--output_file', help = 'Path of output excel file')
     parser.add_argument('-o',"--out_dir", help = "Directory of evaluation output", default = './')
 
@@ -97,10 +98,14 @@ if __name__== "__main__" :
     if not len(sys.argv) > 1 :
         print ('No input has been provided')
     else:
-        GT = args.gt_file
+        # GT = args.gt_file
         output = args.output_file
-        gt_data = pd.read_excel(GT)
-        output_data = pd.read_excel(output)
+        # gt_data = pd.read_excel(GT)
+        xls = pd.ExcelFile(output)
+        gt_data = pd.read_excel(xls, 'correct')
+        output_data = pd.read_excel(xls, 'incorrect')
+        # output_data = pd.read_excel(output)
         debug = args.debug
         out_dir = args.out_dir
-        metric(gt_data.drop(columns = 'Page'),output_data.drop(columns = 'Page'),debug,out_dir)
+        print(out_dir)
+        metric(gt_data.drop(columns = 'Page').drop(columns = 'Year'),output_data.drop(columns = 'Page').drop(columns = 'Year'),debug,out_dir)
