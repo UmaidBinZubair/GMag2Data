@@ -1,6 +1,7 @@
 import pytesseract
 import cv2
 import os
+import re
 import sys
 import pandas as pd
 import argparse
@@ -40,6 +41,7 @@ def constant_aspect_resize(image, width=2500, height=None):
     return resized
 
 def removeLine(img):
+    
     _h,_w = img.shape
     ret,thresh = cv2.threshold(img,10,255,cv2.THRESH_BINARY_INV)
     cnts, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
@@ -54,7 +56,7 @@ def removeLine(img):
             widths[w] = [x,y,w,h]
     try:
         max_wid = max(widths.keys()) 
-        if max_wid > 0.7 * w:
+        if max_wid > 0.75 * w:
             # print(widths[max_wid])
             x,y,w,h = widths[max_wid]
             img[0:y+h+3,:] = 255
@@ -93,9 +95,12 @@ def verticalProj(image):
     return brk[0][final[0]]
 
 def horizontalProj(image):    
+
+    image = cv2.threshold(image,0,255,cv2.THRESH_BINARY)[1]
     image = 255 - image
     h,w = image.shape
-    proj = np.sum(image,1) 
+    proj = np.sum(image,1)
+    proj[proj<(255*(w/16))] = 0 
     brk = np.where(proj==0)
     cha = (np.diff(brk[0])>1)
     final = np.where(cha ==True)
@@ -137,7 +142,7 @@ def findamount(data,w):
                 dollor_num += 1
             if dollor_num > 1:
                 line['amount'] = 1
-                if line['box'][0] > 0.07*w:
+                if line['box'][0] > 0.08*w:
                     data[i-1]['words'] = data[i-1]['words'] + line['words']
                     data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3] + 10
                     data[i-1]['box'][2] = (line['box'][0]+line['box'][2]) - data[i-1]['box'][0]   
@@ -211,10 +216,9 @@ def findSubHeader(data,image,i,save,out_dir):
         summed = np.sum(crop)/(crop.size)
         # _summed = np.sum(_crop)/(_crop.size)
         widths = findContourWidth(_crop)
-        wid = np.mean(widths) + (3*np.std(widths))
-        # print(summed*wid,line['words's])
-
-        if (summed*wid) > 1000:
+        wid = np.mean(widths) + (4*np.std(widths))
+        # print(summed*wid,line['words'])
+        if (summed*wid) > 1900:
             if data[i-1]['sub']:
                 data[i-1]['words'] = data[i-1]['words'] + line['words']
                 data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
@@ -238,7 +242,7 @@ def findSubHeaderblob(im):
     kernel = np.ones((5,6),np.uint8)
     im = cv2.morphologyEx(im, cv2.MORPH_OPEN, kernel,iterations=1)
     kernel = np.ones((4,37),np.uint8)
-    im = cv2.morphologyEx(im, cv2.MORPH_CLOSE, kernel,iterations=5)
+    im = cv2.morphologyEx(im, cv2.MORPH_CLOSE, kernel,iterations=4)
     kernel = np.ones((3,7),np.uint8)
     im = cv2.morphologyEx(im, cv2.MORPH_OPEN, kernel,iterations=4)  
 
@@ -265,6 +269,7 @@ def data2excel (data,file):
     global num
     startrow = num
     excel_data = []
+    special = [']','|']
     for line in data:
         lin['Page'] = line['page']
         if line['header']:
@@ -279,13 +284,23 @@ def data2excel (data,file):
             for i,word in enumerate(line['words']):
                 if '$' in word:
                     if not lin['Low']:
-                        lin['Low'] = word
+                        price = word.split('$')
+                        lin['Low'] = price[1]
+                        for sp in special:
+                            if sp in lin['Low']:
+                                lin['Low'].replace(sp,'1')
+                        lin['Low'] = int(lin['Low'].replace('.','').replace(',',''))
                         if 1 != i:
                             lin['Features'] = ' '.join(line['words'][1:i])
                         else:
                             lin['Features'] = ''
+                        lin['Features'] = lin['Features'] + price[0]
                     else:
-                        lin['High'] = word
+                        lin['High'] = word.split('$')[1]
+                        if sp in lin['High']:
+                            lin['High'].replace(sp,'1')
+                        lin['High'] = int(lin['High'].replace('.','').replace(',',''))
+
             excel_data.append(lin.copy())
             num += 1
     df = pd.DataFrame(excel_data)
@@ -297,7 +312,9 @@ def data2excel (data,file):
 
 def sortByColumn(image,columns,save,file,out_dir):
     h,w= image.shape
-    image = image[int(0.08*h):int(0.955*h),:]
+    # image = image[int(0.08*h):int(0.953*h),:]
+    image = image[int(0.08*h):,:]
+    cut = 0
     for j,col in enumerate(columns):
         start = col - 20
         if j+1 == len(columns):
@@ -307,10 +324,16 @@ def sortByColumn(image,columns,save,file,out_dir):
         if (end - start) < 0.1*w:
             continue 
         img = image[:,start:end]
+        # cv2.imshow('init',constant_aspect_resize(img, width=None, height=600))
         img = removeLine(img)
         if img is None:
             continue
+        cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(j)+'.jpg')),constant_aspect_resize(img, width=None, height=700))
+
+        # cv2.imshow('then',constant_aspect_resize(img, width=None, height=600))
         vert = verticalProj(img.copy())
+        # print(vert)
+        horz = horizontalProj(img.copy())
         try:
             if vert[0] <= 15:
                 pass
@@ -318,6 +341,26 @@ def sortByColumn(image,columns,save,file,out_dir):
                 img = img[:,vert[0]-15:]
         except:
             pass
+        try:
+            if cut == 0:
+                cut = horz[-1]
+            img = img[:cut-5,:]
+        except:
+            pass
+
+        # print(h)
+        # print(max(horz))
+        # print(horz)
+        # print(h - np.array(horz))
+        # print(cut)
+        # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        # cv2.imshow('first',constant_aspect_resize(image, width=None, height=600))
+        # for ver in vert:
+        #     cv2.line(img,(ver,0),(ver,h),(255,234,0),3)
+        # cv2.imshow('header',constant_aspect_resize(img, width=None, height=600))
+        # if cv2.waitKey(0) & 0xFF == ord('q'):
+        #     cv2.destroyAllWindows()
+        # assert False
         ocr = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT, config = '--psm 4')
         # value = [ocr['height'][i] for i,level in enumerate(ocr['level']) if level == 4]
         # if value:
@@ -355,7 +398,7 @@ def sortByColumn(image,columns,save,file,out_dir):
         findSubHeader(data,img,j,save,out_dir)
         draw(data,img)
         data2excel(data,file)
-        cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(j)+'.jpg')),constant_aspect_resize(img, width=None, height=700))
+        cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(j)+'_'+str(j)+'_.jpg')),constant_aspect_resize(img, width=None, height=700))
 
 
 def process(path,out_dir,file,name):
