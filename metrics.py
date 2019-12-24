@@ -6,7 +6,7 @@ from excelWriter import excelWrite
 from utils import error_rate
 
 def metric(gt_data,check_data,debug,out_dir):
-
+    check_copy = check_data.copy()
     cells_to_color = []
     acc = {}
     for j,col in enumerate(gt_data.columns): 
@@ -80,9 +80,11 @@ def metric(gt_data,check_data,debug,out_dir):
         return df1
 
     check_data = check_data.append(acc,ignore_index = True)
+    check_data = pd.concat([check_data,check_copy])
     check_data = pd.concat([pd.DataFrame(acc,index = [0]), check_data], ignore_index=True).reset_index(drop = True)
     final_data = check_data.style.apply(colorize, axis=None)
-    final_data.to_excel(out_dir,index = None)
+    print(out_dir)
+    final_data.to_excel(os.path.join(out_dir,'result.xlsx'),index = None)
 
 
 if __name__== "__main__" :
@@ -108,4 +110,5 @@ if __name__== "__main__" :
         debug = args.debug
         out_dir = args.out_dir
         print(out_dir)
-        metric(gt_data.drop(columns = 'Page').drop(columns = 'Year'),output_data.drop(columns = 'Page').drop(columns = 'Year'),debug,out_dir)
+        # metric(gt_data.drop(columns = 'Page').drop(columns = 'Year'),output_data.drop(columns = 'Page').drop(columns = 'Year'),debug,out_dir) // Original entry. Change when running for orignal script
+        metric(gt_data,output_data,debug,out_dir)
