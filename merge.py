@@ -71,18 +71,19 @@ def improve_year(x):
     #     out = x
     return out
 
-# merged['Model_year'] = merged['Model_year'].apply(lambda x: improve_year(x))  //uncomment
-merged['year'] = merged['Model_year'].apply(lambda x: improve_year(x))
+merged['Model_year'] = merged['Model_year'].apply(lambda x: improve_year(x)) 
+# merged['year'] = merged['Model_year'].apply(lambda x: improve_year(x))
 # print(merged['year'])
 # assert False
-feat = pd.concat([merged['Model_year'],merged['year']],axis = 1)
+# feat = pd.concat([merged['Model_year'],merged['year']],axis = 1)
 # feat['Model_year'] = merged['Model_year']
 # feat2['Model_year'] = merged['year']
-feat.to_excel("processed_books/org.xlsx",index = None)
+# feat.to_excel("processed_books/org.xlsx",index = None)
 # feat2.to_excel("processed_books/copy.xlsx",index = None)
-assert False
+# assert False
 merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'[^a-zA-Z.\d\s^$"-]', '', str(x)).strip())
 merged = merged.drop("Page",axis = 1)
+merged['Features'] = merged['New_Feature'].fillna('')
 # feat = pd.concat([merged['Features'],merged['New_Feature']],axis = 1)
 # feat['New_Feature'] = feat['New_Feature'].fillna('')
 # print(feat)
@@ -95,10 +96,10 @@ years = np.sort(merged.Year.unique())
 # assert False
 columns = ['Type','Manufacturer','Model','Model_year','Features']
 grouped = merged.sort_values(['Year','Model_year']).groupby(["Type","Manufacturer","Model",'Features'])
-# for year in years:                              // uncomment for main procedure
-#     columns.append(str(year)+'_Low')
-#     columns.append(str(year)+'_High')
-#     columns.append(str(year)+'_diff')
+for year in years:
+    columns.append(str(year)+'_Low')
+    columns.append(str(year)+'_High')
+    columns.append(str(year)+'_diff')
 # groups = [group for _,group in grouped]
 excel = []
 head = dict.fromkeys(columns, "")
@@ -106,34 +107,34 @@ N = pd.DataFrame(head,index=[0])
 head = N.copy()
 
 for name,gr in tqdm(grouped):
-    # print(name)                         //uncomment
-    # print(gr)
+    print(name)                       
+    print(gr)
     """Temp code"""
-    head = pd.concat([head,gr,N],axis = 0,ignore_index = True)
+    # head = pd.concat([head,gr,N],axis = 0,ignore_index = True)
     # print(head)
     """Temp code"""
 
-    # head = dict.fromkeys(columns, None)                      // uncomment for main procedure
-    # for row_index, group in gr.iterrows():
-        # head['Type'] = group['Type']                        
-        # head['Manufacturer'] = group['Manufacturer']
-        # head['Model'] = group['Model']
-        # head['Model_year'] = group['Model_year']
-        # head['Features'] = group['Features']
-        # year = group["Year"]
-        # head[str(year)+'_Low'] = group["Low"] 
-        # head[str(year)+'_High'] = group["High"]
-        # head[str(year)+'_diff'] = group['High'] - group['Low']
-    # print(head)
-    # excel.append(head.copy())
+    head = dict.fromkeys(columns, None)                      
+    for row_index, group in gr.iterrows():
+        head['Type'] = group['Type']                        
+        head['Manufacturer'] = group['Manufacturer']
+        head['Model'] = group['Model']
+        head['Model_year'] = group['Model_year']
+        head['Features'] = group['Features']
+        year = group["Year"]
+        head[str(year)+'_Low'] = group["Low"] 
+        head[str(year)+'_High'] = group["High"]
+        head[str(year)+'_diff'] = group['High'] - group['Low']
+    print(head)
+    excel.append(head.copy())
 
 
 # final = pd.concat(groups, axis = 0).drop("Page",axis = 1)
 
-# file = pd.DataFrame(excel)                      // uncomment for main procedure
+file = pd.DataFrame(excel)                     
 # df.to_csv(index=False)
 # file.to_excel("processed_books/final.xlsx",index = None,columns=list(head.keys()))
-# file.to_csv("new_processed_books/excels/group.csv",columns=list(head.keys()))    // uncomment for main procedure
-head.to_csv("new_processed_books/excels/group.csv",columns=list(head.keys()))   
+file.to_csv("new_processed_books/excels/group.csv",columns=list(head.keys()))   
+# head.to_csv("new_processed_books/excels/group.csv",columns=list(head.keys()))   
    # print(name)
    # print(group)
