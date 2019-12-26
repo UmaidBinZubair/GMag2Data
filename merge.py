@@ -30,10 +30,12 @@ def improve_year(x):
     # print(temp,x)
     twe = '200'
     nin = '190'
-    print(temp)
+    # print(temp)
     for i,w in enumerate(temp):
+            # print(w[:2] == '19')
+
         if len(w) > 4:
-            if int(w[:4]) > 1800 and int(w[:4]) < 2050:
+            if int(w[:4]) > 1700 and int(w[:4]) < 2050:
                 temp[i] = w[:4]
             else:
                 temp[i] = w[1:]

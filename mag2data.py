@@ -80,25 +80,6 @@ def removeLine(img):
         return img
     except:
         pass
-
-# def removeHeader(data):
-#     def common_member(a, b): 
-#         a_set = set(a) 
-#         b_set = set(b) 
-#         if len(a_set.intersection(b_set)) > 0: 
-#             return(True)  
-#         return(False)
-
-#     a = ['YEAR', 'FEATURES', 'LOW', 'HIGH','MODEL', 'EXC.' 'COND. ', 'EXC. ', 'COND.','Low','High']
-#     i=0
-#     while i < len(data):
-#         line = data[i]
-#         if len(line['words']):
-#             if common_member(a,line['words']) or line['words'][0].isspace() or line['words'][0] == '':
-#                 del data[i]
-#                 i-=1 
-#         i+=1
-
     
 def verticalProj(image):    
     image = 255 - image
@@ -195,17 +176,6 @@ def findHeader(data,image,i,save,out_dir):
                 del data[i]
             else:
                 line['header'] = 1
-
-        # summed = np.sum(image[b[1]:b[1]+b[3],b[0]:b[0]+b[2]])
-
-        # print(summed,line['words'])
-        # if summed > 900000:
-        #     if data[i-1]['header']:
-        #         data[i-1]['words'] = data[i-1]['words'] + line['words']
-        #         data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
-        #         del data[i]
-        #     else:
-        #         line['header'] = 1
 
 def findContourWidth(crop):
     gray_image = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
@@ -324,13 +294,6 @@ def findType(img):
     print(np.argmin(error))
     return (np.argmin(error))
 
-    # cv2.imshow("mask",np.uint8(mask)*255)
-    # cv2.waitKey(0)
-    
-    # cv2.imshow("img", crop)
-    # cv2.waitKey(0)
-    # break 
-
 def draw(data,img):
     for line in data:
         if line['words']:
@@ -369,11 +332,8 @@ def data2excel (data,file):
             lin['Model_year'] = line['words'][0]
             amount_line = line['words']
             amount_line.reverse()
-            # print(amount_line)
             for i,word in enumerate(amount_line):
                 if '$' in word:
-                    # print(word)
-                    # print(line['words'])
                     if not lin['High']:
                         price = word.split('$')
                         lin['High'] = price[1]
@@ -382,8 +342,6 @@ def data2excel (data,file):
                                 lin['High'].replace(sp,'1')
                         lin['High'] = lin['High'].replace('.','').replace(',','')
                         lin['High'] = int(''.join(amount_reg.findall(lin['High'])))
-                        # print(lin['Low'],lin['Manufacturer'],lin['Model'])
-                        # lin['Low'] = int(lin['Low'].replace('.','').replace(',',''))
                     elif not lin['Low']:
                         price = word.split('$')
                         lin['Low'] = price[1]
@@ -399,32 +357,7 @@ def data2excel (data,file):
                             lin['Features'] = ''
                         lin['Features'] = lin['Features'] + price[0]
                         lin['Features'] = re.sub(r'[^a-zA-Z&\[\]\d\s^$"]', '', str(lin['Features'])).strip()
-                        # lin['Features'] = re.sub(r'[^a-zA-Z.&\[\]\d\s^$"-]\W*$', '', str(lin['Features']))
-            # lin['Low'] = 0                              // please uncomment when to use for main 
-            # lin['Model_year'] = line['words'][0]
-            # for i,word in enumerate(line['words']):
-            #     if '$' in word:
-            #         # print(line['words'])
-            #         if not lin['Low']:
-            #             price = word.split('$')
-            #             lin['Low'] = price[1]
-            #             for sp in special:
-            #                 if sp in lin['Low']:
-            #                     lin['Low'].replace(sp,'1')
-            #             # print(lin['Low'],lin['Manufacturer'],lin['Model'])
-            #             lin['Low'] = int(lin['Low'].replace('.','').replace(',',''))
-            #             if 1 != i:
-            #                 lin['Features'] = ' '.join(line['words'][1:i])
-            #             else:
-            #                 lin['Features'] = ''
-            #             lin['Features'] = lin['Features'] + price[0]
-            #             lin['Features'] = re.sub(r'[^a-zA-Z.\[\]\d\s^$"-]', '', str(lin['Features'])).strip()
-            #         else:
-            #             lin['High'] = word.split('$')[1]
-            #             if sp in lin['High']:
-            #                 lin['High'].replace(sp,'1')
-            #             lin['High'] = int(lin['High'].replace('.','').replace(',',''))
-
+                        
             excel_data.append(lin.copy())
             num += 1
     df = pd.DataFrame(excel_data)
@@ -438,40 +371,31 @@ def data2excel (data,file):
 temp_num = 0
 type_num = -1
 def sortByColumn(image,columns,save,file,out_dir):
+
     im = image.copy()
     global temp_num
     global type_num
     h,w = image.shape
-    # image = image[int(0.08*h):int(0.953*h),:]
     image = image[int(0.06*h):,:]
     cut = 0
-    # for j,col in enumerate(columns):   // please uncomment it when suing for main output
     j = 0
     columns = np.sort(columns)
-    # print(columns)
     col_num = 0
+
     while j < len(columns) - 1:
         col = columns[j]
         if col > 20:
             start = col - 20
         else:
             start = col
-        # if j+1 == len(columns):       // please uncomment it when using for main output
-        #     end = w 
-        # else:
 
         end = columns[j+1]
         width = end -start
         j += 1
+
         if width < 0.1*w:    
             continue 
         if width > 0.4*w:
-            # print('in',temp_num)
-            # print(out_dir)
-            # cv2.imshow('init',constant_aspect_resize(im[int(0.06*h):int(0.95*h),:], width=None, height=600))
-            # if cv2.waitKey(0) & 0xFF == ord('q'):
-            #     cv2.destroyAllWindows()
-            # cv2.imwrite(os.path.join(out_dir,'main_'+str(temp_num)+'.jpg'),constant_aspect_resize(img, width=None, height=700))
             temp_num = 1
             continue
 
@@ -482,22 +406,15 @@ def sortByColumn(image,columns,save,file,out_dir):
                 temp_num = 0
 
         img = image[:,start:end]
-        # cv2.imshow('first',constant_aspect_resize(img, width=None, height=700))
-
         img = removeLine(img)        
         if img is None:
             continue
 
-        # print(out_dir)
         cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(col_num)+'.jpg')),constant_aspect_resize(img, width=None, height=700))
-
-        # cv2.imshow('then',constant_aspect_resize(img, width=None, height=600))
         vert = verticalProj(img.copy())
         vert = np.sort(vert)
-        # print(vert)
         horz = horizontalProj(img.copy())
-        # print(horz)
-        # print(vert)
+
         try:                      
             if vert[0] <= 15:
                 pass
@@ -508,39 +425,11 @@ def sortByColumn(image,columns,save,file,out_dir):
         try:
             if cut == 0:
                 cut = horz[-1]
-            # print(cut)
             img = img[:cut-5,:]
         except:
             pass
-        # cv2.imshow('second',constant_aspect_resize(img, width=None, height=700))
-        # if cv2.waitKey(0) & 0xFF == ord('q'):
-        #     cv2.destroyAllWindows()
 
-
-
-        # print(h)
-        # print(max(horz))
-        # print(horz)
-        # print(h - np.array(horz))
-        # print(cut)
-        # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        # cv2.imshow('first',constant_aspect_resize(image, width=None, height=600))
-        # for ver in vert:
-        #     cv2.line(img,(ver,0),(ver,h),(255,234,0),3)
-        # cv2.imshow('header',constant_aspect_resize(img, width=None, height=600))
-        # img = 255 - img
-        # img = constant_aspect_resize(img, width=None, height=300)
-
-        # assert False
         ocr = apply_ocr(os.path.join(out_dir,'OCR',str(save)+'_'+str(col_num)),img)
-        # print(ocr)
-        # value = [ocr['height'][i] for i,level in enumerate(ocr['level']) if level == 4]
-        # if value:
-        #     value = max(value)
-        #     if value > 0.1*h:
-        #         continue
-        # else:
-        #     continue
             
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         data = []
@@ -565,13 +454,10 @@ def sortByColumn(image,columns,save,file,out_dir):
             if ocr['level'][i] == 5:
                 line['words'].append(ocr['text'][i])
 
-        # removeHeader(data)
         findamount(data,end - start)
         findHeader(data,img,j,save,out_dir)
         findSubHeader(data,img,j,save,out_dir)
         draw(data,img)
-        # cv2.imshow('',constant_aspect_resize(img, width=None, height=600))
-        # cv2.waitKey(0)
         cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(col_num)+'_'+str(col_num)+'_.jpg')),constant_aspect_resize(img, width=None, height=600))
         col_num+=1
         data2excel(data,file)
@@ -609,10 +495,7 @@ if __name__== "__main__" :
         file = os.path.join(out_dir,args.excel_name)
         os.makedirs(os.path.join(out_dir,'processed'),exist_ok = True)
         os.makedirs(os.path.join(out_dir,'OCR'),exist_ok = True)
-        # """ Temp code start """
-        # os.makedirs(os.path.join(out_dir,'main',args.year),exist_ok = True)
-        # out_dir = os.path.join(out_dir,'main',args.year)
-        # """ Temp code end """
+
         i = 0
         if args.specific_page:
             img_path = args.specific_page
@@ -622,9 +505,9 @@ if __name__== "__main__" :
             root = args.input_dir
             images = os.listdir(root)
             images.sort(key = lambda i: int((i.split('_')[-1]).split('.')[0]))
-            # i = 24 
+
             i = 0 
-            i = 386       
+            # i = 386       
             while i < len(images):
                 name = images[i] 
                 print(images[i])
