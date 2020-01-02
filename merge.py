@@ -81,9 +81,8 @@ merged['Model_year'] = merged['Model_year'].apply(lambda x: improve_year(x))
 # feat.to_excel("processed_books/org.xlsx",index = None)
 # feat2.to_excel("processed_books/copy.xlsx",index = None)
 # assert False
-merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'[^a-zA-Z.\d\s^$"-]', '', str(x)).strip())
+merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'[^a-zA-Z.\d\s^$-]', '', str(x)).strip())
 merged = merged.drop("Page",axis = 1)
-merged['Features'] = merged['New_Feature'].fillna('')
 # feat = pd.concat([merged['Features'],merged['New_Feature']],axis = 1)
 # feat['New_Feature'] = feat['New_Feature'].fillna('')
 # print(feat)
@@ -105,36 +104,105 @@ excel = []
 head = dict.fromkeys(columns, "")
 N = pd.DataFrame(head,index=[0])
 head = N.copy()
-
+"""Temp code"""
+# head =  [gr[1] for gr in grouped]    
+# head = pd.concat(head,axis = 0,ignore_index = True)
+# print(head)
+"""Temp code"""
 for name,gr in tqdm(grouped):
-    print(name)                       
-    print(gr)
+    # print(name)                       
+    # print(gr)
+
+    all_years = [str(group['Model_year']).split('-')[0] for row_index, group in gr.iterrows()]
+    unique_years = np.unique(all_years)
+    # print(all_years)
+    # print(unique_years)
+    year_groups = dict()
+    for row_index, group in gr.iterrows():
+        # print(name)                       
+        # print(gr)
+        if '-' in str(group['Model_year']):
+            split_yr = str(group['Model_year']).split('-')[0]
+        else:
+            split_yr = str(group['Model_year']) + 'x'
+        
+        if split_yr in year_groups.keys():
+            year_groups[split_yr].append(group)
+        else:
+            year_groups[split_yr] = [group]
+
+    new_groups = dict()
+    current_key = ""
+    for key, group_rows in year_groups.items():
+        for i, row in enumerate(group_rows):
+            # print(row['Model'])
+            # print('row',row)
+            # print(row['Model_year'],current_key)
+            if i == 0:
+                current_key = row['Model_year']
+                new_groups[current_key] = [row]
+
+            # if current_key not in new_groups.columns:
+            #     new_groups[current_key] = list()
+            # print(len(group_rows))
+            if i < len(group_rows) and i > 0:
+                try:
+                    # print(i, len(group_rows))
+                    # print(group_rows[i]["Model_year"].split("-"))
+                    next_year = str(group_rows[i]["Model_year"]).split("-")[1] 
+                    # print(current_key,row['Model_year'])
+                    # current_key = row['Model_year']
+                    prev_year = str(group_rows[i-1]['Model_year']).split("-")[1]
+                    next_year = int(next_year.replace("s", ""))
+                    prev_year = int(prev_year.replace("s", ""))
+                    # print(row['Model'],next_year,prev_year)
+                    if next_year - prev_year > 1:
+                        current_key = row['Model_year']
+                        new_groups[current_key] = [row]
+                    else:
+                        # current_key = row['Model_year']
+                        new_groups[current_key].append(row)
+                except Exception as e:
+                    # print(e)
+                    # print(row['Model'],"0","0")
+                    # new_groups
+                    new_groups[current_key].append(row)
+
+
+    # print(year_groups)
+    print(new_groups,'\n')
+    # assert False
+    # exit(0)
     """Temp code"""
     # head = pd.concat([head,gr,N],axis = 0,ignore_index = True)
     # print(head)
     """Temp code"""
 
     head = dict.fromkeys(columns, None)                      
-    for row_index, group in gr.iterrows():
-        head['Type'] = group['Type']                        
-        head['Manufacturer'] = group['Manufacturer']
-        head['Model'] = group['Model']
-        head['Model_year'] = group['Model_year']
-        head['Features'] = group['Features']
-        year = group["Year"]
-        head[str(year)+'_Low'] = group["Low"] 
-        head[str(year)+'_High'] = group["High"]
-        head[str(year)+'_diff'] = group['High'] - group['Low']
-    print(head)
+    for key,data in new_groups.items():
+        for group in data:
+
+            head['Type'] = group['Type']                        
+            head['Manufacturer'] = group['Manufacturer']
+            head['Model'] = group['Model']
+            head['Model_year'] = group['Model_year']
+            head['Features'] = group['Features']
+            year = group["Year"]
+            head[str(year)+'_Low'] = group["Low"] 
+            head[str(year)+'_High'] = group["High"]
+            head[str(year)+'_diff'] = group['High'] - group['Low']
+        print(head)
     excel.append(head.copy())
 
 
 # final = pd.concat(groups, axis = 0).drop("Page",axis = 1)
 
-file = pd.DataFrame(excel)                     
+file = pd.DataFrame(excel)
+file['Features'] = file['Features'].fillna('')                     
 # df.to_csv(index=False)
 # file.to_excel("processed_books/final.xlsx",index = None,columns=list(head.keys()))
-file.to_csv("new_processed_books/excels/group.csv",columns=list(head.keys()))   
+file.to_csv("new_processed_books/excels/2001-2020(31.12.19)v2",columns=list(head.keys()))   
 # head.to_csv("new_processed_books/excels/group.csv",columns=list(head.keys()))   
    # print(name)
    # print(group)
+
