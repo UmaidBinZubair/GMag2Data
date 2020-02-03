@@ -5,34 +5,23 @@ import glob
 import os
 import re
 
-root = '/home/umaid/Experiments/guitar/GMag2Data/new_processed_books/excels'
-files = glob.glob(os.path.join(root,'*.xlsx'))
-files = [pd.read_excel(file) for file in files]
-merged = pd.concat(files, axis=0,sort= True)
-# new_feature = merged['Features'].map(lambda x: re.sub(r'\W+', '', x))
-# merged['New_Feature'] = merged['Features'].str.translate(None, ["_~—-="])
-# merged['New_Feature'] = merged['Features'].str.replace(r"[^a-zA-Z ]+", "").str.strip()
-# regex = re.compile(r'(\d{4}s?-\d{4}s?)|(\d{4}s?-\d{2}s?)|(\d{4}s?)')
-# regex = re.compile(r'\d{4}s?-?[0-9]?[0-9]?[0-9]?[0-9]?s?')
-# regex = re.compile(r'(\d{4}s?-\d{2,4}s?)|(\d{4}s?)')
+# root = '/home/umaid/Experiments/guitar/GMag2Data/new_processed_books/excels'
+# files = glob.glob(os.path.join(root,'*.xlsx'))
+# files = [pd.read_excel(file) for file in files]
+# merged = pd.concat(files, axis=0,sort= True)
+
 def improve_year(x):
     out = []
-    # print('start',x)
     x = re.sub(r'[|\]\[!t\{\}\(LIijJl\)]', '1', str(x))
     x = re.sub(r'[OC]', '0', str(x))
     x = re.sub(r'[S]', '5', str(x))
     x = re.sub(r'[^\ds-]','',str(x))
-    # print('end',x)
     temp = re.sub(r's','',x).split("-")
     x = x.split('-')
-    # print('x',x)
-    # print('temp',temp)
-    # print(temp,x)
     twe = '200'
     nin = '190'
-    # print(temp)
+
     for i,w in enumerate(temp):
-            # print(w[:2] == '19')
 
         if len(w) > 4:
             if int(w[:4]) > 1700 and int(w[:4]) < 2050:
@@ -59,17 +48,30 @@ def improve_year(x):
         out.append(temp[i])
         if 's' in x[i]:
             out[i] = out[i] + 's'
-        # if len(w) < 4 and 
-    # temp = [w[:4] if len(w) > 4 and int(w[:4]) > 1800 else '' w[1:] if len(w) > 4 and int(w[:4]) <= 1800 else '' for w in temp]
+    
     out = '-'.join(out)
-    # # out = regex.findall()
-    # if len(out):
-    #     if len(out)>1:
-    #         out = out[0][1:]+out[1]
-    #     out = ''.join(out[0])
-    # else:
-    #     out = x
     return out
+
+def preceedingtraits(x):
+    char_one = re.compile(r'[a-km-zA-KM-Z][\[\]!{}()|]')
+    digit_one = re.compile(r'\d["\[\]!{}()|"]')
+    digit_zero = re.compile(r'\d["Oo"]')
+    words = x.split()
+    for i,word in enumerate(words):
+        if char_one.findall(word):
+            word = re.sub(r'[\[\]!{}()|]', 'l', str(word))
+        if digit_one.findall(word):
+            word = re.sub(r'[\[\]!{}()|]', '1', str(word))
+        if digit_zero.findall(word):
+            word = re.sub(r'[oO]', '0', str(word))
+        words[i] = word
+    return ' '.join(words)
+
+a = 'model! 0o1'
+
+print(preceedingtraits(a))
+assert False
+
 
 merged['Model_year'] = merged['Model_year'].apply(lambda x: improve_year(x)) 
 # merged['year'] = merged['Model_year'].apply(lambda x: improve_year(x))
@@ -205,4 +207,3 @@ file.to_csv("new_processed_books/excels/2001-2020(31.12.19)v2",columns=list(head
 # head.to_csv("new_processed_books/excels/group.csv",columns=list(head.keys()))   
    # print(name)
    # print(group)
-
