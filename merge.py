@@ -5,11 +5,6 @@ import glob
 import os
 import re
 
-# root = '/home/umaid/Experiments/guitar/GMag2Data/new_processed_books/excels'
-# files = glob.glob(os.path.join(root,'*.xlsx'))
-# files = [pd.read_excel(file) for file in files]
-# merged = pd.concat(files, axis=0,sort= True)
-
 def improve_year(x):
     out = []
     x = re.sub(r'[|\]\[!t\{\}\(LIijJl\)]', '1', str(x))
@@ -54,63 +49,75 @@ def improve_year(x):
 
 def preceedingtraits(x):
     char_one = re.compile(r'[a-km-zA-KM-Z][\[\]!{}()|]')
-    digit_one = re.compile(r'\d["\[\]!{}()|"]')
+    digit_one = re.compile(r'[\d\s]["\[\]!{}()|"]')
     digit_zero = re.compile(r'\d["Oo"]')
     words = x.split()
     for i,word in enumerate(words):
         if char_one.findall(word):
             word = re.sub(r'[\[\]!{}()|]', 'l', str(word))
         if digit_one.findall(word):
+            # print('asdf')
             word = re.sub(r'[\[\]!{}()|]', '1', str(word))
         if digit_zero.findall(word):
             word = re.sub(r'[oO]', '0', str(word))
         words[i] = word
     return ' '.join(words)
 
-a = 'model! 0o1'
 
-print(preceedingtraits(a))
-assert False
+def cleaning(df):
+    df = df.apply(lambda x: re.sub(r'[^a-zA-Z\d\s^$#\[\]!{}()|]', '', str(x)).strip())
+    df = df.apply(lambda x: re.sub(r'[$§]', 'S', str(x)).strip())
+    df = df.apply(lambda x: preceedingtraits(x))
+    df = df.str.title()
+    return df
 
 
-merged['Model_year'] = merged['Model_year'].apply(lambda x: improve_year(x)) 
-# merged['year'] = merged['Model_year'].apply(lambda x: improve_year(x))
-# print(merged['year'])
-# assert False
-# feat = pd.concat([merged['Model_year'],merged['year']],axis = 1)
-# feat['Model_year'] = merged['Model_year']
-# feat2['Model_year'] = merged['year']
-# feat.to_excel("processed_books/org.xlsx",index = None)
-# feat2.to_excel("processed_books/copy.xlsx",index = None)
-# assert False
-merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'[^a-zA-Z.\d\s^$-]', '', str(x)).strip())
+root = '/home/umaid/Experiments/guitar/GMag2Data/new_processed_books/excels'
+files = glob.glob(os.path.join(root,'*.xlsx'))
+files = [pd.read_excel(file) for file in files]
+merged = pd.concat(files, axis=0,sort= True)
+
+
+merged['Model_year'] = merged['Model_year'].apply(lambda x: improve_year(x))
+# merged['Features'] = cleaning(merged['Features'])
+# merged['Model'] = cleaning(merged['Model'])
+# merged['Manufacturer'] = cleaning(merged['Manufacturer'])
+merged['Type']=merged['Type'].str.title()
+merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'Nan', '', str(x)).strip())
 merged = merged.drop("Page",axis = 1)
-# feat = pd.concat([merged['Features'],merged['New_Feature']],axis = 1)
-# feat['New_Feature'] = feat['New_Feature'].fillna('')
-# print(feat)
-# feat.to_excel("processed_books/feat.xlsx",index = None)
-# # print(merged['features'])
-# assert False
-# merged.to_excel("processed_books/merged.xlsx",index = None)
+
 years = np.sort(merged.Year.unique())
-# print(years)
-# assert False
 columns = ['Type','Manufacturer','Model','Model_year','Features']
+# print(merged.Type.unique())
+# assert False
 grouped = merged.sort_values(['Year','Model_year']).groupby(["Type","Manufacturer","Model",'Features'])
+# grouped = merged.groupby(["Type","Manufacturer","Model",'Features'])
+
+
+"""Temp code"""
+merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'nan', '', str(x)).strip())
+col = ['Type','Manufacturer','Model','Model_year','Features','High','Low','Year']
+head =  [gr[1] for gr in grouped]    
+head = pd.concat(head,axis = 0,ignore_index = True)
+head = head.fillna('')
+head.to_csv("new_processed_books/excels/original.csv",columns=col)
+assert False
+"""Temp code"""
+
+
 for year in years:
     columns.append(str(year)+'_Low')
     columns.append(str(year)+'_High')
     columns.append(str(year)+'_diff')
-# groups = [group for _,group in grouped]
+
 excel = []
 head = dict.fromkeys(columns, "")
 N = pd.DataFrame(head,index=[0])
 head = N.copy()
 """Temp code"""
-# head =  [gr[1] for gr in grouped]    
-# head = pd.concat(head,axis = 0,ignore_index = True)
-# print(head)
-"""Temp code"""
+
+# # print(head)
+# # """Temp code"""
 for name,gr in tqdm(grouped):
     # print(name)                       
     # print(gr)
@@ -175,10 +182,6 @@ for name,gr in tqdm(grouped):
     print(new_groups,'\n')
     # assert False
     # exit(0)
-    """Temp code"""
-    # head = pd.concat([head,gr,N],axis = 0,ignore_index = True)
-    # print(head)
-    """Temp code"""
 
     head = dict.fromkeys(columns, None)                      
     for key,data in new_groups.items():

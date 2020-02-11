@@ -81,7 +81,8 @@ def removeLine(img):
     except:
         pass
     
-def verticalProj(image):    
+def verticalProj(image):
+    thresh, image = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY)    
     image = 255 - image
     h,w = image.shape
     image = image[int(0.065*h):int(0.95*h),:]
@@ -370,6 +371,7 @@ def data2excel (data,file):
 
 temp_num = 0
 type_num = -1
+
 def sortByColumn(image,columns,save,file,out_dir):
 
     im = image.copy()
@@ -381,6 +383,7 @@ def sortByColumn(image,columns,save,file,out_dir):
     j = 0
     columns = np.sort(columns)
     col_num = 0
+
 
     while j < len(columns) - 1:
         col = columns[j]
@@ -512,5 +515,7 @@ if __name__== "__main__" :
                 name = images[i] 
                 print(images[i])
                 path = os.path.join(root,name)
+                print(path)
+                assert False
                 process(path,out_dir,file,str(name.split('_')[-1].split('.')[0]))
                 i+=1
