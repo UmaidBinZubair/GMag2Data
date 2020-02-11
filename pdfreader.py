@@ -124,9 +124,23 @@ def mergeheader(words):
 						i-=1
 				i+=1
 
+def topheadermerge(data):
+	i = 0
+	while i < len(data)-1:
+		if i == 0:
+			i+=1
+			continue
+		if data[i+1]['header'] and data[i]['header']:
+			dots = data[i]['box']
+			s_dots = data[i+1]['box']
+			data[i]['word'] = data[i]['word'] +' '+data[i+1]['word']
+			data[i]['box']=[min(dots[0],s_dots[0]),min(dots[1],s_dots[1]),max(dots[2],s_dots[2]),min(dots[3],s_dots[3])] 
+			del data[i+1]
+		i+=1
+headers = []
 def pdfreader(root):
 	for i in range(2,567):
-		i = 541
+		# i = 541
 
 		xml_path = os.path.join(out_dir,"page_"+str(i)+".xml")
 		img_path = os.path.join(image_dir,"page_"+str(i)+".jpg")
@@ -184,18 +198,24 @@ def pdfreader(root):
 		# words = column_sort(words,columns,f)
 		findHeader(words,image)
 		mergeheader(words)
+		topheadermerge(words)
 		# print(words)
 		
 		for word in words:
 			if word['header'] == 1:
-				print(word['word'])
-				b = word['box']
-				cv2.rectangle(image, (b[0], b[1]), (b[2], b[3]), (0,0, 255), 3)
-		cv2.imshow('',cv2.resize(image,(500,700)))
-		cv2.waitKey(0)
+				headers.append(word['word'])
+		file = pd.DataFrame(headers)
+		file.to_csv("new_processed_books/excels/pdfreaderHeaders.csv")
+		assert False
+		# 		print(word['word'])
+		# 		b = word['box']
+		# 		cv2.rectangle(image, (b[0], b[1]), (b[2], b[3]), (0,0, 255), 3)
+		# cv2.imshow('',cv2.resize(image,(500,700)))
+		# cv2.waitKey(0)
 			# for word in line:
 			#   print(word)
 
-		assert False
+		# assert False
+
 
 pdfreader(root)
