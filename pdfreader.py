@@ -11,7 +11,8 @@ out_dir = '/home/umaid/Experiments/guitar/GMag2Data/processed_books/'+name
 image_dir = os.path.join(out_dir,'pages')
 
 os.makedirs(os.path.join(out_dir,'xmls'),exist_ok = True)
-out_dir = os.path.join(out_dir,'xmls')
+os.makedirs(os.path.join(out_dir,'headers'),exist_ok = True)
+# out_dir = os.path.join(out_dir,'xmls')
 
 def verticalProj(image):    
 	image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -79,16 +80,18 @@ def findHeader(data,image):
 		# crop = image[b[1]*int(f):b[1]*int(f)+b[3]*int(f),b[0]*int(f):b[0]*int(f)+b[2]*int(f)]
 		crop = image[b[1]:b[3],b[0]:b[2]]
 		_crop = img[b[1]:b[3],b[0]:b[2]]
-		# cv2.imshow('',_crop)
+		# cv2.imshow('',crop)
+		# cv2.imshow('sdfwe',_crop)
+		# cv2.waitKey(0)
 		if crop.size == 0:
 			continue
 		summed = np.sum(crop)/(crop.size)
 		widths = findContourWidth(_crop)
 		# cv2.waitKey(0)
-		wid = np.mean(widths) + (2*np.std(widths))
+		wid = np.mean(widths) + (7*np.std(widths))
 		# print(summed*wid,line['word'])
-
-		if (summed*wid) > 700:
+		# print(line['word'],(summed*wid))
+		if (summed*wid) > 1000:
 			line['header'] = 1
 			# if data[i-1]['header']:
 			#     data[i-1]['words'] = data[i-1]['words'] + line['words']
@@ -110,13 +113,13 @@ def mergeheader(words):
 					continue
 				s_dots = word['box']
 
-				if np.abs(s_dots[1] - dots[1])<0.5*rise:
+				if np.abs(s_dots[1] - dots[1]) < 0.75*rise :
 					if (np.abs(s_dots[0] - dots[2]) < 0.1*rise) :
 						line['word'] = ''.join([line['word'].strip(),word['word'].strip()])
 						line['box'] = [min(dots[0],s_dots[0]),min(dots[1],s_dots[1]),max(dots[2],s_dots[2]),min(dots[3],s_dots[3])]
 						del words[i]
 						i-=1
-					elif (np.abs(s_dots[0] - dots[2]) < 4*rise) :
+					elif np.abs(s_dots[0] - dots[2]) < 6*rise :
 						# print([line['word'].split(),word['word'].split()])
 						line['word'] = ' '.join([line['word'].strip(),word['word'].strip()])
 						line['box'] = [min(dots[0],s_dots[0]),min(dots[1],s_dots[1]),max(dots[2],s_dots[2]),min(dots[3],s_dots[3])]
@@ -131,23 +134,27 @@ def topheadermerge(data):
 			i+=1
 			continue
 		if data[i+1]['header'] and data[i]['header']:
+
 			dots = data[i]['box']
 			s_dots = data[i+1]['box']
 			data[i]['word'] = data[i]['word'] +' '+data[i+1]['word']
 			data[i]['box']=[min(dots[0],s_dots[0]),min(dots[1],s_dots[1]),max(dots[2],s_dots[2]),min(dots[3],s_dots[3])] 
 			del data[i+1]
 		i+=1
+
 headers = []
 def pdfreader(root):
+	j = 1
 	for i in range(2,567):
-		# i = 541
 
-		xml_path = os.path.join(out_dir,"page_"+str(i)+".xml")
-		img_path = os.path.join(image_dir,"page_"+str(i)+".jpg")
+		j = 34
+
+		xml_path = os.path.join(out_dir,'xmls',"page_"+str(j)+".xml")
+		img_path = os.path.join(image_dir,"page_"+str(j)+".jpg")
 
 		if not os.path.exists(xml_path):
-			os.system("pdf2txt.py "+str(root)+" -p "+str(i)+" -o "+xml_path)
-		print(xml_path)
+			os.system("pdf2txt.py "+str(root)+" -p "+str(j)+" -o "+xml_path)
+		print('\n\n\n'+'page_'+str(j))
 		mytree = ET.parse(xml_path)
 
 		image = cv2.imread(img_path)
@@ -173,7 +180,7 @@ def pdfreader(root):
 			try:
 				box = [x for x in cha.attrib['bbox'].split(',')]
 				# print(h_-int(float(box[3])),int(0.11*h))
-				if h_-int(float(box[3]))<int(0.025*h):
+				if h_-int(float(box[3]))<int(0.024*h):
 					continue
 				if i == 0:
 					p1 = (int(float(box[0])),h_-int(float(box[3])))
@@ -186,7 +193,7 @@ def pdfreader(root):
 					temp['word'] = word
 					temp['font'] = font
 					# temp['box'] = [p1,p2]
-					temp['box'] = [int(p1[0]*f),int(p1[1]*fy),int(p2[0]*f),int(p2[1]*fy)]
+					temp['box'] = [int(p1[0]*f),int(p1[1]*1.01*fy),int(p2[0]*f),int(p2[1]*fy)]
 					temp['size'] = size
 					word = ''
 					words.append(temp)
@@ -204,12 +211,17 @@ def pdfreader(root):
 		for word in words:
 			if word['header'] == 1:
 				headers.append(word['word'])
+				print(word['word'])
+				b = word['box']
+				cv2.rectangle(image, (b[0], b[1]), (b[2], b[3]), (0,0, 255), 3)
+		# assert False
+		# print(os.path.join(out_dir,'headers','page_'+str(i),'.jpg'))
+		cv2.imwrite(os.path.join(out_dir,'headers','page_'+str(j)+'.jpg'),image)
+		j+=1
 		file = pd.DataFrame(headers)
 		file.to_csv("new_processed_books/excels/pdfreaderHeaders.csv")
-		assert False
-		# 		print(word['word'])
-		# 		b = word['box']
-		# 		cv2.rectangle(image, (b[0], b[1]), (b[2], b[3]), (0,0, 255), 3)
+
+
 		# cv2.imshow('',cv2.resize(image,(500,700)))
 		# cv2.waitKey(0)
 			# for word in line:
