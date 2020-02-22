@@ -82,6 +82,7 @@ def removeLine(img):
         pass
     
 def verticalProj(image):
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     thresh, image = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY)    
     image = 255 - image
     h,w = image.shape
@@ -155,7 +156,8 @@ def findamount(data,w):
                     i -= 2
         i+=1
 
-def findHeader(data,image,i,save,out_dir):
+def findHeader(data,image,i,save,out_dir,head_pkl):
+
     img = image.copy()
     image = findHeaderblob(image)
     # cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(i)+'_header.jpg')),constant_aspect_resize(image, width=None, height=700))
@@ -176,7 +178,9 @@ def findHeader(data,image,i,save,out_dir):
                 data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
                 del data[i]
             else:
+                # print(line['words'],line['org_box'][0],line['org_box'][1],line['org_box'][0]+line['org_box'][2],line['org_box'][1]+line['org_box'][3])
                 line['header'] = 1
+                # assert False
 
 def findContourWidth(crop):
     gray_image = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
@@ -210,7 +214,7 @@ def findSubHeader(data,image,i,save,out_dir):
         # _summed = np.sum(_crop)/(_crop.size)
         widths = findContourWidth(_crop)
         wid = np.mean(widths) + (6*np.std(widths))
-        print(summed*wid,line['words'])
+        # print(summed*wid,line['words'])
         if (summed*wid) > 3000:
             if data[i-1]['sub']:
                 data[i-1]['words'] = data[i-1]['words'] + line['words']
@@ -289,10 +293,7 @@ def findType(img):
     ocr = pytesseract.image_to_data(crop, output_type=pytesseract.Output.DICT, config = '--psm 8')
     
     _type = ''.join(ocr['text'])
-    print(_type,error_rate(_type,'AMPS'))
     error = [error_rate(_type,typ) for typ in types]
-    print(error)
-    print(np.argmin(error))
     return (np.argmin(error))
 
 def draw(data,img):
@@ -372,7 +373,18 @@ def data2excel (data,file):
 temp_num = 0
 type_num = -1
 
+def readpickle(path):
+    objects = []
+    with (open(path, "rb")) as openfile:
+        while True:
+            try:
+                objects.append(pickle.load(openfile))
+            except EOFError:
+                break
+    return objects
+
 def sortByColumn(image,columns,save,file,out_dir):
+
 
     im = image.copy()
     global temp_num
@@ -386,6 +398,7 @@ def sortByColumn(image,columns,save,file,out_dir):
 
 
     while j < len(columns) - 1:
+        
         col = columns[j]
         if col > 20:
             start = col - 20
@@ -409,6 +422,7 @@ def sortByColumn(image,columns,save,file,out_dir):
                 temp_num = 0
 
         img = image[:,start:end]
+        # cv2.imshow('sdg',constant_aspect_resize(img, width=None, height=600))
         img = removeLine(img)        
         if img is None:
             continue
@@ -432,8 +446,15 @@ def sortByColumn(image,columns,save,file,out_dir):
         except:
             pass
 
+        # cv2.imshow('',constant_aspect_resize(img, width=None, height=600))
+        # cv2.waitKey(0)
+        # continue
+
         ocr = apply_ocr(os.path.join(out_dir,'OCR',str(save)+'_'+str(col_num)),img)
-            
+
+
+        resize_factor = float(w) / 2500
+        # dim = (width, int(h * r))    
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         data = []
         for i in tqdm(range(len(ocr['level']))):
@@ -452,13 +473,22 @@ def sortByColumn(image,columns,save,file,out_dir):
                     ocr['width'][i],
                     ocr['height'][i],
                 ]
+                org_rect = [
+                    (ocr['left'][i]+col)*resize_factor,
+                    (ocr['top'][i]+int(0.06*h))*resize_factor,
+                    (ocr['width'][i])*resize_factor,
+                    (ocr['height'][i])*resize_factor,
+                ] 
+                line['org_box'] = org_rect
                 line['box'] = rect
                 data.append(line) 
             if ocr['level'][i] == 5:
                 line['words'].append(ocr['text'][i])
 
+        
+        head_pkl = readpickle(os.path.join(out_dir,file.split('/')[-1].split('.')[0]+'.pickle'))
         findamount(data,end - start)
-        findHeader(data,img,j,save,out_dir)
+        findHeader(data,img,j,save,out_dir,head_pkl)
         findSubHeader(data,img,j,save,out_dir)
         draw(data,img)
         cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(col_num)+'_'+str(col_num)+'_.jpg')),constant_aspect_resize(img, width=None, height=600))
@@ -516,6 +546,5 @@ if __name__== "__main__" :
                 print(images[i])
                 path = os.path.join(root,name)
                 print(path)
-                assert False
                 process(path,out_dir,file,str(name.split('_')[-1].split('.')[0]))
                 i+=1
