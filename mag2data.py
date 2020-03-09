@@ -72,19 +72,28 @@ def removeLine(img):
             widths[w] = [x,y,w,h]
     try:
         max_wid = max(widths.keys()) 
-        if max_wid > 0.75 * w:
+        if max_wid > 0.75 * _w:
+            # print(max_wid,0.75*_w)
             # print(widths[max_wid])
             x,y,w,h = widths[max_wid]
             img[0:y+h+3,:] = 255
             # img[y-3:y+h+3,x-3:x+w+3] = 255
+        # print('sdglsjdgliijojo')
+        # cv2.rectangle(img,(x,y),(x+w,h+y),(0,0,255),3)
+        # cv2.imshow('',constant_aspect_resize(img, width=None, height=600))
+        # cv2.waitKey(0)
         return img
     except:
         pass
     
 def verticalProj(image):
-    # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    thresh, image = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY)    
-    image = 255 - image
+    try:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    except:
+        pass
+    # thresh, image = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY)    
+    # image = 255 - image
+    thresh,image = cv2.threshold(image,200,255,cv2.THRESH_BINARY_INV)
     h,w = image.shape
     image = image[int(0.065*h):int(0.95*h),:]
     proj = np.sum(image,0) 
@@ -139,7 +148,10 @@ def line_align(data,w):
 
 def findamount(data,w):
     i = 0
+    # print(data)
+    # print(len(data))
     while i < len(data):
+        # print(i,len(data))
         line = data[i]
         dollor_num = 0
         for elem in line['words']:
@@ -147,7 +159,7 @@ def findamount(data,w):
                 dollor_num += 1
             if dollor_num > 1:
                 line['amount'] = 1
-                if line['box'][0] > 0.08*w:
+                if line['box'][0] > 0.09*w:
                     data[i-1]['words'] = data[i-1]['words'] + line['words']
                     data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3] + 10
                     data[i-1]['box'][2] = (line['box'][0]+line['box'][2]) - data[i-1]['box'][0]   
@@ -156,7 +168,7 @@ def findamount(data,w):
                     i -= 2
         i+=1
 
-def findHeader(data,image,i,save,out_dir,head_pkl):
+def findHeader(data,image,i,save,out_dir,head_pkl,itr):
 
     img = image.copy()
     image = findHeaderblob(image)
@@ -178,8 +190,25 @@ def findHeader(data,image,i,save,out_dir,head_pkl):
                 data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
                 del data[i]
             else:
+                max_common = 0
                 # print(line['words'],line['org_box'][0],line['org_box'][1],line['org_box'][0]+line['org_box'][2],line['org_box'][1]+line['org_box'][3])
                 line['header'] = 1
+                # print(line['words'])
+                for head in head_pkl[0][itr]:
+                    
+                    common = iou(line['org_box'],[head['box'][0],head['box'][1]/1.01,head['box'][2] - head['box'][0],head['box'][3] - head['box'][1]/1.01])
+                    # print(line['words'],head['word'])
+                    # print(line['org_box'],[head['box'][0],head['box'][1],head['box'][2] - head['box'][0],head['box'][3] - head['box'][1]])
+                    
+                    if common > max_common:
+                        print(line['words'],head['word'])
+                        # print('I am in')
+                        max_common = common
+                        # print(head['word'])
+                        line['words'] = head['word'].split()
+                        # print(head['word'])
+                        # print(line['org_box'],[head['box'][0],head['box'][1]/1.01,head['box'][2] - head['box'][0],head['box'][3] - head['box'][1]])
+                        # print(common)
                 # assert False
 
 def findContourWidth(crop):
@@ -271,7 +300,7 @@ def findType(img):
         max_freq_label_right = values[np.argmax(counts)]
 
     if max_freq_left == 0 and max_freq_right == 0:
-        print("Label not found in: ", filename)
+        print("Label not found ")
         return -1
 
     mask = labels!=0
@@ -290,9 +319,12 @@ def findType(img):
         mask = np.flip(mask, axis=0)
 
     ret,crop = cv2.threshold(crop,200,255,cv2.THRESH_BINARY_INV)
+    # cv2.imshow('',crop)
+    # cv2.waitKey(0)
     ocr = pytesseract.image_to_data(crop, output_type=pytesseract.Output.DICT, config = '--psm 8')
     
     _type = ''.join(ocr['text'])
+    # print('detected',_type)
     error = [error_rate(_type,typ) for typ in types]
     return (np.argmin(error))
 
@@ -312,13 +344,31 @@ def draw(data,img):
                 b = line['box']
                 cv2.rectangle(img, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (255,255, 0), 3)
 
+def temp_draw(head_pkl,img,itr):
+
+    for line in head_pkl[0][itr]:
+        if line['word']:
+            if line['header']:
+                b = line['box']
+                cv2.rectangle(img, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (0,255, 255), 3)
+            # elif line['amount']:
+            #     b = line['box']
+            #     cv2.rectangle(img, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (0, 255, 0), 3)
+            # elif line['sub']:
+            #     b = line['box']
+            #     cv2.rectangle(img, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (255,0, 0), 3)
+            # else:
+            #     b = line['box']
+            #     cv2.rectangle(img, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (255,255, 0), 3)
+
 
 def data2excel (data,file):
     global num
     startrow = num
     excel_data = []
     amount_reg = re.compile(r'\d+')
-    special = [']','|','[']
+    special_one = [']','|','[','H']
+    special_zero = ['o','O','C']
     for line in data:
         lin['Page'] = line['page']
         lin['Type'] = line['type']
@@ -336,13 +386,24 @@ def data2excel (data,file):
             amount_line.reverse()
             for i,word in enumerate(amount_line):
                 if '$' in word:
+                    # print(word)
                     if not lin['High']:
                         price = word.split('$')
                         lin['High'] = price[1]
-                        for sp in special:
+
+                        for sp in special_one:
                             if sp in lin['High']:
-                                lin['High'].replace(sp,'1')
+                                if sp == 'H':
+                                    lin['High'] = lin['High'].replace(sp,'11')
+                                else:    
+                                    lin['High'] = lin['High'].replace(sp,'1')
+
+                        for sp in special_zero:
+                            if sp in lin['High']:
+                                lin['High'] = lin['High'].replace(sp,'0')
+
                         lin['High'] = lin['High'].replace('.','').replace(',','')
+                        # print(lin['High'])
                         lin['High'] = int(''.join(amount_reg.findall(lin['High'])))
                     elif not lin['Low']:
                         price = word.split('$')
@@ -370,25 +431,33 @@ def data2excel (data,file):
         excelWrite(df,filename = file)
 
 
-temp_num = 0
-type_num = -1
 
 def readpickle(path):
     objects = []
-    with (open(path, "rb")) as openfile:
-        while True:
-            try:
-                objects.append(pickle.load(openfile))
-            except EOFError:
-                break
+    try:
+        with (open(path, "rb")) as openfile:
+            while True:
+                try:
+                    objects.append(pickle.load(openfile))
+                except EOFError:
+                    break
+    except:
+        objects = None
     return objects
 
-def sortByColumn(image,columns,save,file,out_dir):
+temp_num = 0
+type_num = -1
+check_num = -1
 
+
+def sortByColumn(image,columns,save,file,out_dir,itr,factor):
 
     im = image.copy()
+
     global temp_num
     global type_num
+    global check_num
+
     h,w = image.shape
     image = image[int(0.06*h):,:]
     cut = 0
@@ -400,8 +469,11 @@ def sortByColumn(image,columns,save,file,out_dir):
     while j < len(columns) - 1:
         
         col = columns[j]
-        if col > 20:
-            start = col - 20
+        # print(col)
+        if col > 10:
+            start = col - 10
+        elif col < 5:
+            start = col + 5
         else:
             start = col
 
@@ -417,9 +489,14 @@ def sortByColumn(image,columns,save,file,out_dir):
 
         if temp_num:
             type_num = findType(im)
-            variation = types[type_num]
+            print(type_num)
+            if type_num == -1:
+                check_num += 1
+                type_num = check_num
             if type_num > -1:
                 temp_num = 0
+
+        print(types[type_num])
 
         img = image[:,start:end]
         # cv2.imshow('sdg',constant_aspect_resize(img, width=None, height=600))
@@ -451,10 +528,7 @@ def sortByColumn(image,columns,save,file,out_dir):
         # continue
 
         ocr = apply_ocr(os.path.join(out_dir,'OCR',str(save)+'_'+str(col_num)),img)
-
-
-        resize_factor = float(w) / 2500
-        # dim = (width, int(h * r))    
+    
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         data = []
         for i in tqdm(range(len(ocr['level']))):
@@ -474,10 +548,10 @@ def sortByColumn(image,columns,save,file,out_dir):
                     ocr['height'][i],
                 ]
                 org_rect = [
-                    (ocr['left'][i]+col)*resize_factor,
-                    (ocr['top'][i]+int(0.06*h))*resize_factor,
-                    (ocr['width'][i])*resize_factor,
-                    (ocr['height'][i])*resize_factor,
+                    (ocr['left'][i]+col)*factor,
+                    (ocr['top'][i]+int(0.06*h))*factor,
+                    (ocr['width'][i])*factor,
+                    (ocr['height'][i])*factor,
                 ] 
                 line['org_box'] = org_rect
                 line['box'] = rect
@@ -487,24 +561,28 @@ def sortByColumn(image,columns,save,file,out_dir):
 
         
         head_pkl = readpickle(os.path.join(out_dir,file.split('/')[-1].split('.')[0]+'.pickle'))
+        # print(data)
         findamount(data,end - start)
-        findHeader(data,img,j,save,out_dir,head_pkl)
+        findHeader(data,img,j,save,out_dir,head_pkl,itr)
         findSubHeader(data,img,j,save,out_dir)
         draw(data,img)
+        # temp_draw(head_pkl,img,itr)
         cv2.imwrite(os.path.join(out_dir,'processed',(save+'_'+str(col_num)+'_'+str(col_num)+'_.jpg')),constant_aspect_resize(img, width=None, height=600))
         col_num+=1
         data2excel(data,file)
 
 
-def process(path,out_dir,file,name):
+def process(path,out_dir,file,name,i):
     image = cv2.imread(path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray = cv2.threshold(gray, 0, 255,
         cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    height, width = gray.shape
     img = constant_aspect_resize(gray)
+    factor = float(width) / 2500
     h,w = img.shape
     columns = verticalProj(img.copy())
-    sortByColumn(img.copy(),columns,name,file,out_dir)
+    sortByColumn(img.copy(),columns,name,file,out_dir,i,factor)
 
 
 if __name__== "__main__" :
@@ -525,7 +603,7 @@ if __name__== "__main__" :
         lin['Year'] = args.year
         debug = args.debug
         out_dir = args.out_dir
-        file = os.path.join(out_dir,args.excel_name)
+        file = os.path.join('/home/umaid/Experiments/guitar/GMag2Data/new_processed_books/new_excels',args.excel_name)
         os.makedirs(os.path.join(out_dir,'processed'),exist_ok = True)
         os.makedirs(os.path.join(out_dir,'OCR'),exist_ok = True)
 
@@ -540,11 +618,12 @@ if __name__== "__main__" :
             images.sort(key = lambda i: int((i.split('_')[-1]).split('.')[0]))
 
             i = 0 
-            # i = 386       
+            # i = 544  - 30
+            # i = 62
             while i < len(images):
                 name = images[i] 
                 print(images[i])
                 path = os.path.join(root,name)
                 print(path)
-                process(path,out_dir,file,str(name.split('_')[-1].split('.')[0]))
+                process(path,out_dir,file,str(name.split('_')[-1].split('.')[0]),i)
                 i+=1

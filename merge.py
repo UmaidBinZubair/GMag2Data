@@ -72,15 +72,24 @@ def cleaning(df):
     return df
 
 
-root = '/home/umaid/Experiments/guitar/GMag2Data/new_processed_books/excels'
+root = '/home/umaid/Experiments/guitar/GMag2Data/new_processed_books/new_excels'
 files = glob.glob(os.path.join(root,'*.xlsx'))
+# print(files)
+# assert False
+for file in files:
+	try:
+		a = pd.read_excel(file)
+	except:
+		print(file)
 files = [pd.read_excel(file) for file in files]
+# print(files)
+# assert False
 merged = pd.concat(files, axis=0,sort= True)
 
 
 merged['Model_year'] = merged['Model_year'].apply(lambda x: improve_year(x))
-# merged['Features'] = cleaning(merged['Features'])
-# merged['Model'] = cleaning(merged['Model'])
+merged['Features'] = cleaning(merged['Features'])
+merged['Model'] = cleaning(merged['Model'])
 # merged['Manufacturer'] = cleaning(merged['Manufacturer'])
 merged['Type']=merged['Type'].str.title()
 merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'Nan', '', str(x)).strip())
@@ -100,7 +109,7 @@ col = ['Type','Manufacturer','Model','Model_year','Features','High','Low','Year'
 head =  [gr[1] for gr in grouped]    
 head = pd.concat(head,axis = 0,ignore_index = True)
 head = head.fillna('')
-head.to_csv("new_processed_books/excels/original.csv",columns=col)
+head.to_csv("new_processed_books/new_excels/original.csv",columns=col)
 assert False
 """Temp code"""
 
