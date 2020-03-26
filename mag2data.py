@@ -244,7 +244,7 @@ def findSubHeader(data,image,i,save,out_dir):
         widths = findContourWidth(_crop)
         wid = np.mean(widths) + (6*np.std(widths))
         # print(summed*wid,line['words'])
-        if (summed*wid) > 3000:
+        if (summed*wid) > 2000:
             if data[i-1]['sub']:
                 data[i-1]['words'] = data[i-1]['words'] + line['words']
                 data[i-1]['box'][3] = data[i-1]['box'][3] + line['box'][3]
@@ -459,7 +459,7 @@ def sortByColumn(image,columns,save,file,out_dir,itr,factor):
     global check_num
 
     h,w = image.shape
-    image = image[int(0.06*h):,:]
+    image = image[int(0.054*h):,:]
     cut = 0
     j = 0
     columns = np.sort(columns)
@@ -527,7 +527,7 @@ def sortByColumn(image,columns,save,file,out_dir,itr,factor):
         # cv2.waitKey(0)
         # continue
 
-        ocr = apply_ocr(os.path.join(out_dir,'OCR',str(save)+'_'+str(col_num)),img)
+        ocr = apply_ocr(os.path.join(out_dir,'OCR_new',str(save)+'_'+str(col_num)),img)
     
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         data = []
@@ -549,7 +549,7 @@ def sortByColumn(image,columns,save,file,out_dir,itr,factor):
                 ]
                 org_rect = [
                     (ocr['left'][i]+col)*factor,
-                    (ocr['top'][i]+int(0.06*h))*factor,
+                    (ocr['top'][i]+int(0.054*h))*factor,
                     (ocr['width'][i])*factor,
                     (ocr['height'][i])*factor,
                 ] 
@@ -605,7 +605,7 @@ if __name__== "__main__" :
         out_dir = args.out_dir
         file = os.path.join('/home/umaid/Experiments/guitar/GMag2Data/new_processed_books/new_excels',args.excel_name)
         os.makedirs(os.path.join(out_dir,'processed'),exist_ok = True)
-        os.makedirs(os.path.join(out_dir,'OCR'),exist_ok = True)
+        os.makedirs(os.path.join(out_dir,'OCR_new'),exist_ok = True)
 
         i = 0
         if args.specific_page:
@@ -619,7 +619,7 @@ if __name__== "__main__" :
 
             i = 0 
             # i = 544  - 30
-            # i = 62
+            # i = 22
             while i < len(images):
                 name = images[i] 
                 print(images[i])
