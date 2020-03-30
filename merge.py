@@ -48,6 +48,7 @@ def improve_year(x):
     return out
 
 def preceedingtraits(x):
+    # mystring = re.sub(r"^\W+", "", mystring)
     char_one = re.compile(r'[a-km-zA-KM-Z][\[\]!{}()|]')
     digit_one = re.compile(r'[\d\s]["\[\]!{}()|"]')
     digit_zero = re.compile(r'\d["Oo"]')
@@ -65,7 +66,11 @@ def preceedingtraits(x):
 
 
 def cleaning(df):
-    df = df.apply(lambda x: re.sub(r'[^a-zA-Z\d\s^$#\[\]!{}()|]', '', str(x)).strip())
+    # mystring = re.sub(r"^\W+", "", mystring)
+    df = df.apply(lambda x: re.sub(r"^\W+|['_]+[^#A-Za-z$§]", "",str(x)).strip())
+    # df = df.apply(lambda x: re.sub(r"[^A-Za-z)}\]]+$", "",str(x)).strip()))
+    df = df.apply(lambda x: re.sub(r"\W+$", "",str(x)).strip())
+    # df = df.apply(lambda x: re.sub(r'[^a-zA-Z\d\s^$#\[\]!{}()|]', '', str(x)).strip())
     df = df.apply(lambda x: re.sub(r'[$§]', 'S', str(x)).strip())
     df = df.apply(lambda x: preceedingtraits(x))
     df = df.str.title()
@@ -77,10 +82,10 @@ files = glob.glob(os.path.join(root,'*.xlsx'))
 # print(files)
 # assert False
 for file in files:
-	try:
-		a = pd.read_excel(file)
-	except:
-		print(file)
+    try:
+        a = pd.read_excel(file)
+    except:
+        print(file)
 files = [pd.read_excel(file) for file in files]
 # print(files)
 # assert False
@@ -90,7 +95,7 @@ merged = pd.concat(files, axis=0,sort= True)
 merged['Model_year'] = merged['Model_year'].apply(lambda x: improve_year(x))
 merged['Features'] = cleaning(merged['Features'])
 merged['Model'] = cleaning(merged['Model'])
-# merged['Manufacturer'] = cleaning(merged['Manufacturer'])
+merged['Manufacturer'] = cleaning(merged['Manufacturer'])
 merged['Type']=merged['Type'].str.title()
 merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'Nan', '', str(x)).strip())
 merged = merged.drop("Page",axis = 1)
@@ -105,12 +110,12 @@ grouped = merged.sort_values(['Year','Model_year']).groupby(["Type","Manufacture
 
 """Temp code"""
 merged['Features'] = merged['Features'].apply(lambda x: re.sub(r'nan', '', str(x)).strip())
-col = ['Type','Manufacturer','Model','Model_year','Features','High','Low','Year']
-head =  [gr[1] for gr in grouped]    
-head = pd.concat(head,axis = 0,ignore_index = True)
-head = head.fillna('')
-head.to_csv("new_processed_books/new_excels/original.csv",columns=col)
-assert False
+# col = ['Type','Manufacturer','Model','Model_year','Features','High','Low','Year']
+# head =  [gr[1] for gr in grouped]    
+# head = pd.concat(head,axis = 0,ignore_index = True)
+# head = head.fillna('')
+# head.to_csv("new_processed_books/new_excels/original.csv",columns=col)
+# assert False
 """Temp code"""
 
 
@@ -215,7 +220,7 @@ file = pd.DataFrame(excel)
 file['Features'] = file['Features'].fillna('')                     
 # df.to_csv(index=False)
 # file.to_excel("processed_books/final.xlsx",index = None,columns=list(head.keys()))
-file.to_csv("new_processed_books/excels/2001-2020(31.12.19)v2",columns=list(head.keys()))   
+file.to_csv("new_processed_books/new_excels/2001-2020(27-3-20)",columns=list(head.keys()))   
 # head.to_csv("new_processed_books/excels/group.csv",columns=list(head.keys()))   
    # print(name)
    # print(group)
