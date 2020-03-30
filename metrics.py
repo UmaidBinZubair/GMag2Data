@@ -91,7 +91,7 @@ if __name__== "__main__" :
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-d','--debug', help = 'Enable debug', action='store_true')
-    # parser.add_argument('-g','--gt_file', help = 'Path of ground truth excel file')
+    parser.add_argument('-g','--gt_file', help = 'Path of ground truth excel file')
     parser.add_argument('-f','--output_file', help = 'Path of output excel file')
     parser.add_argument('-o',"--out_dir", help = "Directory of evaluation output", default = './')
 
@@ -100,15 +100,15 @@ if __name__== "__main__" :
     if not len(sys.argv) > 1 :
         print ('No input has been provided')
     else:
-        # GT = args.gt_file
+        GT = args.gt_file
         output = args.output_file
-        # gt_data = pd.read_excel(GT)
-        xls = pd.ExcelFile(output)
-        gt_data = pd.read_excel(xls, 'correct')
-        output_data = pd.read_excel(xls, 'incorrect')
-        # output_data = pd.read_excel(output)
+        gt_data = pd.read_excel(GT)
+        # xls = pd.ExcelFile(output)
+        # gt_data = pd.read_excel(xls, 'correct')
+        # output_data = pd.read_excel(xls, 'incorrect')
+        output_data = pd.read_excel(output)
         debug = args.debug
         out_dir = args.out_dir
         print(out_dir)
-        # metric(gt_data.drop(columns = 'Page').drop(columns = 'Year'),output_data.drop(columns = 'Page').drop(columns = 'Year'),debug,out_dir) // Original entry. Change when running for orignal script
-        metric(gt_data,output_data,debug,out_dir)
+        metric(gt_data.drop(columns = 'Page').drop(columns = 'Year'),output_data.drop(columns = 'Page').drop(columns = 'Year'),debug,out_dir) // Original entry. Change when running for orignal script
+        # metric(gt_data,output_data,debug,out_dir)
